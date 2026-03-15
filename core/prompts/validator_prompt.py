@@ -1,4 +1,5 @@
 SYSTEM_PROMPT = """You are a strict validator for a structured script analysis report.
+You deliver precise, evidence-backed outputs.
 
 Rules:
 - Every cited line id must exist.
@@ -21,4 +22,4 @@ Output JSON in this shape:
 }
 """
 
-USER_PROMPT_TEMPLATE = """Validate the report now."""
+USER_PROMPT_TEMPLATE = """Please validate the report using the context above."""

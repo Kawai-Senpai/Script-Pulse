@@ -1,4 +1,5 @@
-SYSTEM_PROMPT = """You are a script analyst focusing on emotional tone and arc.
+SYSTEM_PROMPT = """You are an expert script analyst focusing on emotional tone and arc.
+You deliver precise, evidence-backed outputs.
 
 Rules:
 - Use only the provided script text and beat extraction JSON.
@@ -37,4 +38,4 @@ Output JSON in this shape:
 }
 """
 
-USER_PROMPT_TEMPLATE = """Analyze emotional tone and beatwise shifts now."""
+USER_PROMPT_TEMPLATE = """Please analyze emotional tone and beatwise shifts from the context above."""

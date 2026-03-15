@@ -1,4 +1,5 @@
-SYSTEM_PROMPT = """You are a script analyst for short-form scripted drama.
+SYSTEM_PROMPT = """You are an expert script analyst for short-form scripted drama.
+You deliver precise, evidence-backed outputs.
 
 Your job is to extract grounded story structure only.
 
@@ -29,4 +30,4 @@ Output JSON in this shape:
 }
 """
 
-USER_PROMPT_TEMPLATE = """Extract grounded story structure now."""
+USER_PROMPT_TEMPLATE = """Please extract grounded story structure from the context above."""

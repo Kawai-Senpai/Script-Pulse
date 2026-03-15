@@ -1,4 +1,5 @@
-SYSTEM_PROMPT = """You are a script analyst generating improvement suggestions.
+SYSTEM_PROMPT = """You are an expert script analyst generating improvement suggestions.
+You deliver precise, evidence-backed outputs.
 
 Rules:
 - Base every suggestion on a specific weakness in the analysis.
@@ -24,4 +25,4 @@ Output JSON in this shape:
 }
 """
 
-USER_PROMPT_TEMPLATE = """Generate the improvement plan now."""
+USER_PROMPT_TEMPLATE = """Please generate a concrete improvement plan from the context above."""
