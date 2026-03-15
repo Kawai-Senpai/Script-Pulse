@@ -192,11 +192,11 @@ function setStats({
   tokens = '0',
   tokensNote = 'No run yet',
   iterations = '0',
-  iterationsNote = 'Actual analysis passes',
-  validation = 'Not run',
-  validationNote = 'Awaiting report verdict',
+  iterationsNote = 'Passes',
+  validation = '\u2014',
+  validationNote = 'Not run',
   session = 'Draft',
-  sessionNote = 'Unsaved working copy',
+  sessionNote = 'Unsaved',
 } = {}) {
   statTokensEl.textContent = tokens;
   statTokensNoteEl.textContent = tokensNote;
@@ -220,9 +220,19 @@ function clearChat() {
   chatFeed.innerHTML = '';
 }
 
+// ─── Tab Indicator ─────────────────────────────────────────────
+function positionTabIndicator(tabName) {
+  const indicator = document.getElementById('tab-indicator');
+  const activeTabEl = document.querySelector(`.tab[data-tab="${tabName}"]`);
+  if (!indicator || !activeTabEl) return;
+  indicator.style.width = `${activeTabEl.offsetWidth}px`;
+  indicator.style.transform = `translateX(${activeTabEl.offsetLeft}px)`;
+}
+
 function activateTab(tabName) {
   tabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === tabName));
   panels.forEach((panel) => panel.classList.toggle('active', panel.id === `tab-${tabName}`));
+  positionTabIndicator(tabName);
 }
 
 tabs.forEach((tab) => {
@@ -471,7 +481,7 @@ function renderOverview(payload) {
         <ol>
           ${topPriorities.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
         </ol>
-      ` : '<p class="session-snippet">No improvement priorities were returned.</p>'}
+      ` : '<p>No improvement priorities were returned.</p>'}
     </article>
     <article class="card">
       <div class="card-head">
@@ -525,7 +535,7 @@ function renderOverview(payload) {
             <span>${escapeHtml((validation.warnings || []).join(' | ') || 'None')}</span>
           </div>
         </div>
-      ` : '<p class="session-snippet">Validation did not run for this payload.</p>'}
+      ` : '<p>Validation did not run for this payload.</p>'}
     </article>
   `;
 }
@@ -710,13 +720,13 @@ function updateReportStats(payload) {
 
   setStats({
     tokens: formatNumber(tokenUsage.total_tokens || payload.tokens_used || 0),
-    tokensNote: `${formatNumber(tokenUsage.input_tokens || 0)} input / ${formatNumber(tokenUsage.output_tokens || 0)} output`,
+    tokensNote: `${formatNumber(tokenUsage.input_tokens || 0)} in / ${formatNumber(tokenUsage.output_tokens || 0)} out`,
     iterations: formatNumber(payload.iterations || 0),
-    iterationsNote: 'Completed analysis passes',
+    iterationsNote: 'Completed passes',
     validation: validationLabel,
     validationNote,
     session: title || 'Draft',
-    sessionNote: currentSessionId ? `Session ${currentSessionId.slice(0, 8)}` : 'Unsaved working copy',
+    sessionNote: currentSessionId ? `ID: ${currentSessionId.slice(0, 8)}` : 'Unsaved copy',
   });
 }
 
@@ -867,11 +877,10 @@ function renderSessionList(sessions) {
   draft.innerHTML = `
     <div class="session-row">
       <div class="session-main">
-        <div class="session-title">Draft</div>
-        <div class="session-snippet">Start a new analysis from scratch.</div>
+        <div class="session-title">New draft</div>
+        <div class="session-snippet">Start a fresh analysis</div>
         <div class="session-meta">
           <span class="session-status">draft</span>
-          <span class="session-time">Not saved yet</span>
         </div>
       </div>
     </div>
@@ -895,14 +904,14 @@ function renderSessionList(sessions) {
     item.innerHTML = `
       <div class="session-row">
         <div class="session-main">
-          <div class="session-title">${escapeHtml(session.title || session.snippet || 'Untitled Session')}</div>
+          <div class="session-title">${escapeHtml(session.title || session.snippet || 'Untitled session')}</div>
           <div class="session-snippet">${escapeHtml(session.snippet || 'No script yet')}</div>
           <div class="session-meta">
             <span class="session-status">${escapeHtml(session.status || 'idle')}</span>
             <span class="session-time">${escapeHtml(formatDateTime(session.updated_at, true))}</span>
           </div>
         </div>
-        <button class="session-delete" type="button" aria-label="Delete session">Delete</button>
+        <button class="session-delete" type="button" aria-label="Delete session">✕</button>
       </div>
     `;
     item.addEventListener('click', async () => {
@@ -985,11 +994,11 @@ async function loadSession(sessionId) {
   );
   setStats({
     tokens: formatNumber(data.token_usage?.total_tokens || data.tokens_used || 0),
-    tokensNote: data.token_usage ? `${formatNumber(data.token_usage.input_tokens || 0)} input / ${formatNumber(data.token_usage.output_tokens || 0)} output` : 'No run yet',
+    tokensNote: data.token_usage ? `${formatNumber(data.token_usage.input_tokens || 0)} in / ${formatNumber(data.token_usage.output_tokens || 0)} out` : 'No run yet',
     iterations: formatNumber(data.iterations || 0),
-    iterationsNote: payload ? 'Saved result' : 'No completed run yet',
-    validation: payload?.validation ? (payload.validation.valid ? 'Passed' : 'Failed') : 'Not run',
-    validationNote: payload?.validation ? `${payload.validation.errors?.length || 0} errors, ${payload.validation.warnings?.length || 0} warnings` : (payload ? 'No validator verdict available.' : 'No report yet'),
+    iterationsNote: payload ? 'Saved result' : 'No run yet',
+    validation: payload?.validation ? (payload.validation.valid ? 'Passed' : 'Failed') : '\u2014',
+    validationNote: payload?.validation ? `${payload.validation.errors?.length || 0} errors, ${payload.validation.warnings?.length || 0} warnings` : (payload ? 'No verdict available' : 'No report yet'),
     session: data.title || 'Untitled',
     sessionNote: formatDateTime(data.updated_at, true),
   });
@@ -1038,11 +1047,40 @@ cfgModel.addEventListener('change', () => {
   updateModelNote();
 });
 
+// ─── Sidebar Toggle ─────────────────────────────────────────────
+const sidebarEl = document.getElementById('sidebar');
+const sidebarToggleBtn = document.getElementById('sidebar-toggle');
+const SIDEBAR_COLLAPSED_KEY = 'scriptpulse_sidebar_collapsed';
+
+function setSidebarCollapsed(collapsed) {
+  if (collapsed) {
+    sidebarEl.classList.add('collapsed');
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, '1');
+  } else {
+    sidebarEl.classList.remove('collapsed');
+    localStorage.removeItem(SIDEBAR_COLLAPSED_KEY);
+  }
+}
+
+if (sidebarToggleBtn) {
+  sidebarToggleBtn.addEventListener('click', () => {
+    setSidebarCollapsed(!sidebarEl.classList.contains('collapsed'));
+  });
+}
+
+if (localStorage.getItem(SIDEBAR_COLLAPSED_KEY)) {
+  setSidebarCollapsed(true);
+}
+
+// ─── Initialize ─────────────────────────────────────────────────
 async function initialize() {
   resetReport();
   applyConfig();
   setMode('draft');
   await refreshSessions();
+
+  // Position tab indicator at the initial active tab
+  requestAnimationFrame(() => positionTabIndicator('overview'));
 
   const savedSessionId = localStorage.getItem('scriptpulse_session');
   if (savedSessionId) {

@@ -7,72 +7,82 @@
   <title>Script Pulse</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
   <div class="shell">
-    <aside class="sidebar">
-      <div class="sidebar-head">
-        <p class="brand">Script Pulse</p>
-        <p class="brand-note">Grounded script analysis with visible evidence, validator verdicts, and token usage you can actually inspect.</p>
-      </div>
 
-      <div class="sidebar-section">
-        <div class="sidebar-section-head">
-          <p class="sidebar-label">Sessions</p>
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="brand-row">
+          <div class="brand-mark">SP</div>
+          <span class="brand-name">Script Pulse</span>
         </div>
-        <div class="session-list" id="session-list"></div>
+        <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-label="Toggle sidebar">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 12L6 8l4-4"/>
+          </svg>
+        </button>
       </div>
 
-      <div class="sidebar-foot">
+      <div class="sidebar-body">
+        <div class="sidebar-section">
+          <p class="sidebar-label collapsible-hide">Sessions</p>
+          <div class="session-list" id="session-list"></div>
+        </div>
+      </div>
+
+      <div class="sidebar-foot collapsible-hide">
         <p>Saved runs keep the latest report, validation output, and token summary. Drafts stay editable until the first run.</p>
       </div>
     </aside>
 
     <main class="page">
-      <header class="page-header">
-        <div class="hero-copy">
-          <p class="eyebrow">Analysis Workspace</p>
-          <h1>Cleaner reads. Smaller UI. Better evidence.</h1>
-          <p class="subtitle">Paste the script, run the analysis, inspect exact cited lines, then regenerate only when the validator says the report needs another pass.</p>
+
+      <header class="topbar">
+        <div class="topbar-brand">
+          <p class="topbar-eyebrow">Analysis Workspace</p>
+          <div class="topbar-status-row">
+            <div class="status-pill" id="status-pill" data-state="idle">Idle</div>
+            <p class="status-detail" id="status-detail">Waiting for script input.</p>
+          </div>
         </div>
 
-        <div class="status-card">
-          <div class="status-pill" id="status-pill" data-state="idle">Idle</div>
-          <p class="status-detail" id="status-detail">Waiting for script input.</p>
+        <div class="topbar-stats">
+          <div class="tstat">
+            <span class="tstat-label">Tokens</span>
+            <strong class="tstat-value" id="stat-tokens">0</strong>
+            <span class="tstat-sub" id="stat-tokens-note">No run yet</span>
+          </div>
+          <div class="tstat-divider"></div>
+          <div class="tstat">
+            <span class="tstat-label">Iterations</span>
+            <strong class="tstat-value" id="stat-iterations">0</strong>
+            <span class="tstat-sub" id="stat-iterations-note">Passes</span>
+          </div>
+          <div class="tstat-divider"></div>
+          <div class="tstat">
+            <span class="tstat-label">Validation</span>
+            <strong class="tstat-value" id="stat-validation">—</strong>
+            <span class="tstat-sub" id="stat-validation-note">Not run</span>
+          </div>
+          <div class="tstat-divider"></div>
+          <div class="tstat">
+            <span class="tstat-label">Session</span>
+            <strong class="tstat-value" id="stat-session">Draft</strong>
+            <span class="tstat-sub" id="stat-session-note">Unsaved</span>
+          </div>
         </div>
       </header>
 
-      <section class="stats-grid">
-        <article class="stat-card">
-          <span class="stat-label">Tokens</span>
-          <strong class="stat-value" id="stat-tokens">0</strong>
-          <span class="stat-note" id="stat-tokens-note">No run yet</span>
-        </article>
-        <article class="stat-card">
-          <span class="stat-label">Iterations</span>
-          <strong class="stat-value" id="stat-iterations">0</strong>
-          <span class="stat-note" id="stat-iterations-note">Actual analysis passes</span>
-        </article>
-        <article class="stat-card">
-          <span class="stat-label">Validation</span>
-          <strong class="stat-value" id="stat-validation">Not run</strong>
-          <span class="stat-note" id="stat-validation-note">Awaiting report verdict</span>
-        </article>
-        <article class="stat-card">
-          <span class="stat-label">Session</span>
-          <strong class="stat-value" id="stat-session">Draft</strong>
-          <span class="stat-note" id="stat-session-note">Unsaved working copy</span>
-        </article>
-      </section>
+      <div class="workspace">
 
-      <section class="layout">
-        <section class="panel editor-panel">
+        <section class="panel input-panel">
           <div class="panel-head">
             <div>
               <p class="panel-label">Input</p>
-              <h2>Source and parameters</h2>
+              <h2>Source &amp; parameters</h2>
             </div>
           </div>
 
@@ -104,12 +114,12 @@
               <p class="field-hint" id="cfg-model-note">OpenAI | 1.05M context | medium thinking</p>
             </label>
 
-            <label class="field field-compact">
+            <label class="field">
               <span>Iterations</span>
               <input id="cfg-iterations" type="number" min="1" value="1" />
             </label>
 
-            <label class="field field-compact">
+            <label class="field">
               <span>Temperature <span id="cfg-temperature-value">0.20</span></span>
               <input id="cfg-temperature" type="range" min="0" max="1" step="0.05" value="0.2" />
             </label>
@@ -123,9 +133,9 @@
           <div id="feedback-block" class="feedback-block hidden">
             <label class="field field-full">
               <span>Regeneration prompt</span>
-              <textarea id="regen" rows="4" placeholder="Ask for cleaner grounding, stronger pacing, better emotional justification, or anything else you want changed..."></textarea>
+              <textarea id="regen" rows="4" placeholder="Ask for cleaner grounding, stronger pacing, better emotional justification..."></textarea>
             </label>
-            <p class="feedback-note">The source text locks after a completed run. Start a new draft if you want to change the script itself.</p>
+            <p class="feedback-note">The source text locks after a completed run. Start a new draft to change the script itself.</p>
           </div>
 
           <div class="action-row">
@@ -134,11 +144,9 @@
           </div>
 
           <div class="feed-panel">
-            <div class="section-head">
-              <div>
-                <h3>Run Feed</h3>
-                <p>Streaming status from the backend worker.</p>
-              </div>
+            <div class="feed-head">
+              <h3>Run Feed</h3>
+              <p>Streaming status from the backend worker.</p>
             </div>
             <div class="chat-feed" id="chat-feed"></div>
           </div>
@@ -154,7 +162,8 @@
             <div class="report-meta" id="report-meta"></div>
           </div>
 
-          <div class="tabs">
+          <div class="tabs" id="tabs-bar">
+            <div class="tab-indicator" id="tab-indicator"></div>
             <button class="tab active" data-tab="overview" type="button">Overview</button>
             <button class="tab" data-tab="beats" type="button">Beats</button>
             <button class="tab" data-tab="emotions" type="button">Emotions</button>
@@ -203,7 +212,8 @@
             <pre id="raw-json"></pre>
           </div>
         </section>
-      </section>
+
+      </div>
     </main>
   </div>
   <script src="/static/app.js"></script>
