@@ -165,6 +165,17 @@ function formatScriptFormat(value) {
   return mapping[value] || 'Unknown';
 }
 
+function formatEnumLabel(value) {
+  const cleaned = String(value || '').trim();
+  if (!cleaned || cleaned === 'null') {
+    return '';
+  }
+  return cleaned
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\b[a-z]/g, (char) => char.toUpperCase());
+}
+
 function formatDateTime(value, compact = false) {
   if (!value) {
     return compact ? 'Just now' : 'just now';
@@ -654,6 +665,8 @@ function renderOverview(payload) {
   const validation = payload.validation;
   const tokenUsage = payload.token_usage || {};
   const topPriorities = payload.improvement_plan?.top_3_priorities || [];
+  const strongestLabel = formatEnumLabel(engagement.strongest_element) || 'Not available';
+  const weakestLabel = formatEnumLabel(engagement.weakest_element) || 'Not available';
   const instructionCount = validation?.regeneration_instructions?.length || 0;
   const validationLabel = validation
     ? (validation.valid ? 'Passed' : 'Failed')
@@ -683,11 +696,11 @@ function renderOverview(payload) {
       <div class="meta-grid">
         <div class="meta-chip">
           <strong>Strongest element</strong>
-          <span>${escapeHtml(engagement.strongest_element || 'Not available')}</span>
+          <span>${escapeHtml(strongestLabel)}</span>
         </div>
         <div class="meta-chip">
           <strong>Weakest element</strong>
-          <span>${escapeHtml(engagement.weakest_element || 'Not available')}</span>
+          <span>${escapeHtml(weakestLabel)}</span>
         </div>
         <div class="meta-chip">
           <strong>Validation</strong>
@@ -948,6 +961,8 @@ function renderEmotions(analysis = {}) {
 
 function renderEngagement(analysis = {}) {
   const factors = analysis.factors || [];
+  const strongestLabel = formatEnumLabel(analysis.strongest_element) || 'Not available';
+  const weakestLabel = formatEnumLabel(analysis.weakest_element) || 'Not available';
   if (!factors.length) {
     engagementEl.innerHTML = '<div class="empty-state"><h3>No engagement scores</h3><p>The engagement stage did not return factor scores.</p></div>';
     return;
@@ -966,11 +981,11 @@ function renderEngagement(analysis = {}) {
       <div class="meta-grid">
         <div class="meta-chip">
           <strong>Strongest</strong>
-          <span>${escapeHtml(analysis.strongest_element || 'Not available')}</span>
+          <span>${escapeHtml(strongestLabel)}</span>
         </div>
         <div class="meta-chip">
           <strong>Weakest</strong>
-          <span>${escapeHtml(analysis.weakest_element || 'Not available')}</span>
+          <span>${escapeHtml(weakestLabel)}</span>
         </div>
         <div class="meta-chip">
           <strong>Cliffhanger line</strong>
@@ -982,7 +997,7 @@ function renderEngagement(analysis = {}) {
       <article class="card">
         <div class="card-head">
           <div>
-            <div class="card-kicker">${escapeHtml(factor.factor)}</div>
+            <div class="card-kicker">${escapeHtml(formatEnumLabel(factor.factor) || factor.factor)}</div>
             <h3>${escapeHtml(factor.score)} / 10</h3>
           </div>
           <div class="soft-pill">Weighted ${escapeHtml(factor.weighted_score)}</div>
