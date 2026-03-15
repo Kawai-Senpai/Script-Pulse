@@ -14,19 +14,26 @@ from ..prompts import (
     VALIDATOR_SYSTEM_PROMPT,
     VALIDATOR_USER_PROMPT_TEMPLATE,
 )
+from .serialization import serialize_for_prompt
 
 Message = Dict[str, str]
 
 
-def build_messages(system_prompt: str, user_messages: Iterable[str]) -> List[Message]:
-    messages: List[Message] = [{"role": "system", "content": system_prompt}]
-    for message in user_messages:
+def build_messages(
+    system_prompt: str,
+    context_messages: Iterable[str],
+    instruction: str,
+) -> List[Message]:
+    messages: List[Message] = []
+    for message in context_messages:
         messages.append({"role": "user", "content": message})
+    messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": instruction})
     return messages
 
 
-def _block(label: str, content: Optional[str]) -> str:
-    safe_content = "" if content is None else str(content)
+def _block(label: str, content: Optional[object]) -> str:
+    safe_content = "" if content is None else serialize_for_prompt(content)
     return f"{label}:\n{safe_content}".strip()
 
 
@@ -39,8 +46,7 @@ def _compose_messages(
     user_messages = list(context_blocks)
     if extra_user_messages:
         user_messages.extend(extra_user_messages)
-    user_messages.append(instruction)
-    return build_messages(system_prompt, user_messages)
+    return build_messages(system_prompt, user_messages, instruction)
 
 
 def build_beat_messages(
