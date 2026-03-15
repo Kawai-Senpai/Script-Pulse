@@ -1,2 +1,12 @@
 brain_dump.md
 assignment.md
+.vscode
+.idea
+.DS_Store
+.pytest_cache
+.infinitecode
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.log
