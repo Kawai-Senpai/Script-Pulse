@@ -18,6 +18,20 @@ Script Pulse is a local FastAPI app that turns pasted script text into a grounde
 - Validates the result (grounding, score consistency, cliffhanger text, line IDs)
 - Supports validator-guided regeneration retries
 
+## What makes it different
+
+This is not a one-shot "here is a score" tool.
+It is built around a tight quality loop and inspectable evidence.
+
+- Self-improvement loop: increase Iterations and the pipeline will rerun with validator regeneration instructions when outputs are shaky
+- Validator-guided fixes: if the validator flags issues, you can regenerate with one click using its guidance
+- Chat with the report: provide a custom regeneration prompt to steer the next run (tighten grounding, adjust tone, focus on a weakness)
+- Rubric scoring, not vibes: engagement is factor-by-factor with weights, and the total is recomputed in code for consistency
+- Sessions and history: multiple saved runs, reloadable from the sidebar
+- Live progress: streaming stage updates via SSE so you can see what is happening right now
+- Official-friendly exports: Export PDF uses a print stylesheet for clean, paginated reports
+- UltraGPT gateway: model selection is pluggable (OpenRouter route via UltraGPT-My own framework)
+
 ## Quick links
 
 - Run it locally: [How To Run It Locally](#how-to-run-it-locally)
@@ -113,7 +127,8 @@ If you want the short version first, here it is.
 - Persistence: local SQLite in `.tmp/scriptanalysis.db`
 - Streaming: Server-Sent Events
 - Main pipeline: normalize -> beats -> emotions -> engagement -> improvements -> validation
-- Retry support: yes, through regeneration prompts and validator instructions
+- Self-improvement loop: yes, reruns with validator instructions when needed (bounded by Iterations)
+- PDF export: yes, via browser print with a dedicated print stylesheet
 
 This app is built for short scripts that fit directly in model context.
 
