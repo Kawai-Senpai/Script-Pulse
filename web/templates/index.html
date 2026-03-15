@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Script Pulse - evidence-led script analysis with live progress and sessioned regeneration." />
+  <title>Script Pulse</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Spline+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="ambient-glow"></div>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand-block">
+        <p class="brand">Script Pulse</p>
+        <span class="brand-sub">Sessions</span>
+      </div>
+      <div class="session-list" id="session-list"></div>
+      <div class="sidebar-footer">
+        <p>New drafts open instantly. Saved sessions appear after your first run.</p>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <header class="workspace-header">
+        <div>
+          <p class="eyebrow">Analysis Studio</p>
+          <h1>Chat-first script analysis</h1>
+          <p class="subtitle">Stream progress, inspect every rubric score, and regenerate with precise feedback.</p>
+        </div>
+        <div class="status-card">
+          <div class="status-pill" id="status-pill">Idle</div>
+          <div class="status-detail" id="status-detail">Waiting for input.</div>
+        </div>
+      </header>
+
+      <div class="workspace-body">
+        <div class="chat-panel">
+          <div class="config-panel">
+            <div class="config-title">Session Controls</div>
+            <div class="config-grid">
+              <label class="config-item">
+                <span>Model</span>
+                <input id="cfg-model" type="text" placeholder="gpt-5.4" />
+              </label>
+              <label class="config-item">
+                <span>Iterations</span>
+                <input id="cfg-iterations" type="number" min="1" value="1" />
+              </label>
+              <label class="config-item">
+                <span>Reasoning iterations</span>
+                <input id="cfg-reasoning-iterations" type="number" min="1" value="2" />
+              </label>
+              <label class="config-item">
+                <span>Temperature <span id="cfg-temperature-value">0.20</span></span>
+                <input id="cfg-temperature" type="range" min="0" max="1" step="0.05" value="0.2" />
+              </label>
+              <label class="config-item toggle">
+                <span>Steps pipeline</span>
+                <input id="cfg-steps" type="checkbox" />
+              </label>
+              <label class="config-item toggle">
+                <span>Reasoning pipeline</span>
+                <input id="cfg-reasoning" type="checkbox" />
+              </label>
+            </div>
+          </div>
+
+          <div class="chat-feed" id="chat-feed"></div>
+
+          <div class="composer">
+            <label>
+              <span>Title</span>
+              <input id="title" type="text" placeholder="The Last Message" />
+            </label>
+            <label>
+              <span>Script</span>
+              <textarea id="script" rows="7" placeholder="Paste script text here..."></textarea>
+            </label>
+            <div id="feedback-block" class="feedback-block hidden">
+              <label>
+                <span>Feedback for revision</span>
+                <textarea id="regen" rows="3" placeholder="Describe what you want changed based on the current report..."></textarea>
+              </label>
+              <p class="feedback-note">Script edits are locked after the first report. Start a new draft to change the script.</p>
+            </div>
+            <div class="composer-actions">
+              <button class="btn primary" id="run-analysis">Run Analysis</button>
+              <button class="btn" id="run-regenerate">Regenerate</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="results-panel hidden" id="results-panel">
+          <div class="tabs">
+            <button class="tab active" data-tab="overview">Overview</button>
+            <button class="tab" data-tab="beats">Beats</button>
+            <button class="tab" data-tab="emotions">Emotions</button>
+            <button class="tab" data-tab="engagement">Engagement</button>
+            <button class="tab" data-tab="improvements">Improvements</button>
+            <button class="tab" data-tab="raw">Raw JSON</button>
+          </div>
+
+          <div class="tab-panel active" id="tab-overview">
+            <div class="skeleton-card" id="overview-skeleton">
+              <div class="skeleton-line"></div>
+              <div class="skeleton-line"></div>
+              <div class="skeleton-line short"></div>
+            </div>
+            <div class="overview" id="overview"></div>
+          </div>
+
+          <div class="tab-panel" id="tab-beats">
+            <div class="data-grid" id="beats"></div>
+          </div>
+
+          <div class="tab-panel" id="tab-emotions">
+            <div class="data-grid" id="emotions"></div>
+          </div>
+
+          <div class="tab-panel" id="tab-engagement">
+            <div class="data-grid" id="engagement"></div>
+          </div>
+
+          <div class="tab-panel" id="tab-improvements">
+            <div class="data-grid" id="improvements"></div>
+          </div>
+
+          <div class="tab-panel" id="tab-raw">
+            <pre id="raw-json"></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

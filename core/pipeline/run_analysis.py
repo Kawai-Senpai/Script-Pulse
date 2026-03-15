@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from ultraprint.logging import logger
 
@@ -65,6 +65,7 @@ def run_analysis(
     config: Optional[AnalysisConfig] = None,
     previous_report: Optional[Any] = None,
     regeneration_prompt: Optional[str] = None,
+    progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
 ) -> AnalysisResult:
     config = config or AnalysisConfig()
     if config.max_iterations < 1:
@@ -78,6 +79,15 @@ def run_analysis(
         config.max_iterations,
         len(script_input.line_map),
     )
+    if progress_callback:
+        progress_callback(
+            {
+                "stage": "start",
+                "status": "start",
+                "iterations": config.max_iterations,
+                "lines": len(script_input.line_map),
+            }
+        )
 
     total_tokens = 0
     details: Dict[str, Any] = {}
@@ -85,6 +95,15 @@ def run_analysis(
 
     for iteration in range(1, config.max_iterations + 1):
         log.info("Iteration %d/%d", iteration, config.max_iterations)
+        if progress_callback:
+            progress_callback(
+                {
+                    "stage": "iteration",
+                    "status": "start",
+                    "iteration": iteration,
+                    "max_iterations": config.max_iterations,
+                }
+            )
         extra_messages = build_regeneration_context_messages(
             regeneration_prompt,
             previous_report,
@@ -94,6 +113,14 @@ def run_analysis(
         log.debug("Regeneration context messages: %d", len(extra_messages))
 
         try:
+            if progress_callback:
+                progress_callback(
+                    {
+                        "stage": "beat_extraction",
+                        "status": "start",
+                        "iteration": iteration,
+                    }
+                )
             beat_messages = build_beat_messages(
                 script_with_line_ids,
                 extra_user_messages=extra_messages,
@@ -116,12 +143,38 @@ def run_analysis(
             beat_extraction = parse_schema(BeatExtraction, beat_content)
         except Exception as exc:
             log.error("Beat extraction failed: %s", exc)
+            if progress_callback:
+                progress_callback(
+                    {
+                        "stage": "beat_extraction",
+                        "status": "error",
+                        "iteration": iteration,
+                        "message": str(exc),
+                    }
+                )
             raise exc
         total_tokens += beat_tokens
         details[f"beat_extraction_{iteration}"] = beat_details
         log.info("Beat extraction complete | tokens=%d", beat_tokens)
+        if progress_callback:
+            progress_callback(
+                {
+                    "stage": "beat_extraction",
+                    "status": "complete",
+                    "iteration": iteration,
+                    "tokens": beat_tokens,
+                }
+            )
 
         try:
+            if progress_callback:
+                progress_callback(
+                    {
+                        "stage": "emotion_analysis",
+                        "status": "start",
+                        "iteration": iteration,
+                    }
+                )
             emotion_messages = build_emotion_messages(
                 script_with_line_ids,
                 model_to_dict(beat_extraction),
@@ -145,12 +198,38 @@ def run_analysis(
             emotion_analysis = parse_schema(EmotionAnalysis, emotion_content)
         except Exception as exc:
             log.error("Emotion analysis failed: %s", exc)
+            if progress_callback:
+                progress_callback(
+                    {
+                        "stage": "emotion_analysis",
+                        "status": "error",
+                        "iteration": iteration,
+                        "message": str(exc),
+                    }
+                )
             raise exc
         total_tokens += emotion_tokens
         details[f"emotion_analysis_{iteration}"] = emotion_details
         log.info("Emotion analysis complete | tokens=%d", emotion_tokens)
+        if progress_callback:
+            progress_callback(
+                {
+                    "stage": "emotion_analysis",
+                    "status": "complete",
+                    "iteration": iteration,
+                    "tokens": emotion_tokens,
+                }
+            )
 
         try:
+            if progress_callback:
+                progress_callback(
+                    {
+                        "stage": "engagement_scoring",
+                        "status": "start",
+                        "iteration": iteration,
+                    }
+                )
             engagement_messages = build_engagement_messages(
                 script_with_line_ids,
                 RUBRIC_BUNDLE,
@@ -174,12 +253,38 @@ def run_analysis(
             engagement_analysis = parse_schema(EngagementAnalysis, engagement_content)
         except Exception as exc:
             log.error("Engagement scoring failed: %s", exc)
+            if progress_callback:
+                progress_callback(
+                    {
+                        "stage": "engagement_scoring",
+                        "status": "error",
+                        "iteration": iteration,
+                        "message": str(exc),
+                    }
+                )
             raise exc
         total_tokens += engagement_tokens
         details[f"engagement_analysis_{iteration}"] = engagement_details
         log.info("Engagement scoring complete | tokens=%d", engagement_tokens)
+        if progress_callback:
+            progress_callback(
+                {
+                    "stage": "engagement_scoring",
+                    "status": "complete",
+                    "iteration": iteration,
+                    "tokens": engagement_tokens,
+                }
+            )
 
         try:
+            if progress_callback:
+                progress_callback(
+                    {
+                        "stage": "improvement_plan",
+                        "status": "start",
+                        "iteration": iteration,
+                    }
+                )
             critique_messages = build_critique_messages(
                 script_with_line_ids,
                 model_to_dict(beat_extraction),
@@ -205,10 +310,28 @@ def run_analysis(
             improvement_plan = parse_schema(ImprovementPlan, critique_content)
         except Exception as exc:
             log.error("Improvement plan failed: %s", exc)
+            if progress_callback:
+                progress_callback(
+                    {
+                        "stage": "improvement_plan",
+                        "status": "error",
+                        "iteration": iteration,
+                        "message": str(exc),
+                    }
+                )
             raise exc
         total_tokens += critique_tokens
         details[f"improvement_plan_{iteration}"] = critique_details
         log.info("Improvement plan complete | tokens=%d", critique_tokens)
+        if progress_callback:
+            progress_callback(
+                {
+                    "stage": "improvement_plan",
+                    "status": "complete",
+                    "iteration": iteration,
+                    "tokens": critique_tokens,
+                }
+            )
 
         report = ScriptAnalysisReport(
             summary_3_4_lines=build_summary_from_beats(beat_extraction),
@@ -220,6 +343,14 @@ def run_analysis(
         )
 
         try:
+            if progress_callback:
+                progress_callback(
+                    {
+                        "stage": "validation",
+                        "status": "start",
+                        "iteration": iteration,
+                    }
+                )
             validation_messages = build_validation_messages(
                 script_with_line_ids,
                 model_to_dict(engagement_analysis),
@@ -243,6 +374,15 @@ def run_analysis(
             validation = parse_schema(ValidationReport, validation_content)
         except Exception as exc:
             log.error("Validation failed: %s", exc)
+            if progress_callback:
+                progress_callback(
+                    {
+                        "stage": "validation",
+                        "status": "error",
+                        "iteration": iteration,
+                        "message": str(exc),
+                    }
+                )
             raise exc
         total_tokens += validation_tokens
         details[f"validation_{iteration}"] = validation_details
@@ -253,9 +393,29 @@ def run_analysis(
             validation.retryable,
             validation_tokens,
         )
+        if progress_callback:
+            progress_callback(
+                {
+                    "stage": "validation",
+                    "status": "complete",
+                    "iteration": iteration,
+                    "valid": validation.valid,
+                    "retryable": validation.retryable,
+                    "tokens": validation_tokens,
+                }
+            )
 
         if validation.valid or not validation.retryable or iteration >= config.max_iterations:
             log.info("Script analysis complete | iterations=%d tokens=%d", iteration, total_tokens)
+            if progress_callback:
+                progress_callback(
+                    {
+                        "stage": "complete",
+                        "status": "complete",
+                        "iterations": iteration,
+                        "tokens_used": total_tokens,
+                    }
+                )
             return AnalysisResult(
                 script_input=script_input,
                 beat_extraction=beat_extraction,
@@ -274,6 +434,15 @@ def run_analysis(
             "Retrying analysis | instructions=%d",
             len(regeneration_instructions),
         )
+        if progress_callback:
+            progress_callback(
+                {
+                    "stage": "retry",
+                    "status": "start",
+                    "iteration": iteration,
+                    "instructions": len(regeneration_instructions),
+                }
+            )
 
     return AnalysisResult(
         script_input=script_input,
