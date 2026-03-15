@@ -1,0 +1,8 @@
+- Step 0 - Normalize input: Clean and line-number the script, detect dialogue and characters, and keep raw and normalized text.
+- Step 1 - Beat extraction: Extract grounded beats, conflict, and cliffhanger candidates with line evidence.
+- Step 2 - Emotion analysis: Identify dominant emotions and beatwise shifts using line evidence.
+- Step 3 - Engagement scoring: Score engagement factors with a weighted rubric and evidence-backed rationale.
+- Step 4 - Improvement plan: Generate concrete, targeted fixes tied to weak factors and line ids.
+- Step 5 - Final assembly: Combine structured outputs into a single report object.
+- Step 6 - Final validation: Verify line ids, grounding, and score consistency.
+- Step 7 - Regeneration loop: If validation fails, use validator regeneration instructions and retry the full flow.
