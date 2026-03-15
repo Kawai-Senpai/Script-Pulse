@@ -923,6 +923,69 @@ input[type="range"]::-webkit-slider-thumb {
   color: var(--ink);
 }
 
+/* Validation */
+.validation-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+.validation-head h3 {
+  font-size: 14px;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.validation-head p {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.validation-hint {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin: 0 0 10px;
+}
+
+.validation-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  color: var(--ink-2);
+}
+
+.validation-pill.success {
+  background: var(--success-soft);
+  color: var(--success);
+  border-color: rgba(5, 150, 105, 0.2);
+}
+
+.validation-pill.error {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: rgba(220, 38, 38, 0.2);
+}
+
+.validation-pill.warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+  border-color: rgba(217, 119, 6, 0.2);
+}
+
+.validation-pill.neutral {
+  background: var(--surface-soft);
+  color: var(--ink-2);
+  border-color: var(--border);
+}
+
 /* Meta grids inside cards */
 .meta-grid,
 .token-stage-grid {
@@ -1152,6 +1215,13 @@ pre {
   .tstat { align-items: flex-start; padding: 0; }
   .control-grid { grid-template-columns: 1fr; }
   .action-row { flex-direction: column; }
+  .validation-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .validation-head .btn {
+    width: 100%;
+  }
   .sidebar { width: 52px; }
   .sidebar .collapsible-hide { opacity: 0; pointer-events: none; }
 }

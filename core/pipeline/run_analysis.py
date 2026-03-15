@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation
 from typing import Any, Callable, Dict, List, Optional
 
 from ultraprint.logging import logger
@@ -27,6 +28,19 @@ from ..utils.schema_utils import build_summary_from_beats, model_to_dict, parse_
 
 
 log = logger("llm_log", **log_config)
+
+
+def _recompute_engagement_overall(analysis: EngagementAnalysis) -> EngagementAnalysis:
+    total = Decimal("0")
+    for factor in analysis.factors or []:
+        try:
+            total += Decimal(str(factor.weighted_score))
+        except (InvalidOperation, TypeError, ValueError):
+            continue
+
+    # Keep the exact weighted total to avoid rounding drift from the model.
+    analysis.overall_score = float(total)
+    return analysis
 
 
 @dataclass
@@ -251,6 +265,7 @@ def run_analysis(
                 reserve_ratio=config.reserve_ratio,
             )
             engagement_analysis = parse_schema(EngagementAnalysis, engagement_content)
+            engagement_analysis = _recompute_engagement_overall(engagement_analysis)
         except Exception as exc:
             log.error("Engagement scoring failed: %s", exc)
             if progress_callback:

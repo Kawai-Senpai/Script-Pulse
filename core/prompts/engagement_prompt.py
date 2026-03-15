@@ -11,13 +11,13 @@ Rules:
 Scoring rules:
 - Score each factor from 0 to 10.
 - Weighted score per factor = score * weight * 10.
-- Overall score = round(sum(weighted_score)).
+- Overall score = sum(weighted_score). Do not round.
 - Use line ids for all evidence.
 - If evidence is weak or ambiguous, score lower.
 
 Output JSON in this shape:
 {
-  "overall_score": 0,
+  "overall_score": 0.0,
   "score_band": "low | moderate | strong | very_strong",
   "factors": [
     {

@@ -15,6 +15,8 @@ const beatsEl = document.getElementById('beats');
 const emotionsEl = document.getElementById('emotions');
 const engagementEl = document.getElementById('engagement');
 const improvementsEl = document.getElementById('improvements');
+const validationEl = document.getElementById('validation');
+const emptyValidationEl = document.getElementById('empty-validation');
 const scriptLinesEl = document.getElementById('script-lines');
 const rawJsonEl = document.getElementById('raw-json');
 const reportTitleEl = document.getElementById('report-title');
@@ -33,6 +35,8 @@ const cfgModelNote = document.getElementById('cfg-model-note');
 const cfgIterations = document.getElementById('cfg-iterations');
 const cfgTemperature = document.getElementById('cfg-temperature');
 const cfgTemperatureValue = document.getElementById('cfg-temperature-value');
+const applyValidationFixBtn = document.getElementById('apply-validation-fix');
+const validationFixNoteEl = document.getElementById('validation-fix-note');
 
 const tabs = Array.from(document.querySelectorAll('.tab'));
 const panels = Array.from(document.querySelectorAll('.tab-panel'));
@@ -353,6 +357,52 @@ function renderEvidenceList(lineIds = []) {
   `;
 }
 
+function renderValidationList(items = [], emptyMessage) {
+  const entries = (items || []).map((item) => String(item || '').trim()).filter(Boolean);
+  if (!entries.length) {
+    return `<p>${escapeHtml(emptyMessage)}</p>`;
+  }
+
+  return `
+    <ul>
+      ${entries.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+    </ul>
+  `;
+}
+
+function buildRegenerationPrompt(validation) {
+  const entries = (validation?.regeneration_instructions || [])
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+  if (!entries.length) {
+    return '';
+  }
+  return entries.map((item) => `- ${item}`).join('\n');
+}
+
+function updateValidationFixState(validation) {
+  if (!applyValidationFixBtn || !validationFixNoteEl) {
+    return;
+  }
+
+  if (!validation) {
+    applyValidationFixBtn.disabled = true;
+    validationFixNoteEl.textContent = 'No validation results yet.';
+    return;
+  }
+
+  const prompt = buildRegenerationPrompt(validation);
+  const instructionCount = validation.regeneration_instructions?.length || 0;
+  applyValidationFixBtn.disabled = !prompt;
+
+  if (!prompt) {
+    validationFixNoteEl.textContent = 'No regeneration instructions were returned for this run.';
+    return;
+  }
+
+  validationFixNoteEl.textContent = `Regeneration instructions ready - this will send ${instructionCount} instruction(s) and start a new run.`;
+}
+
 function applySelectedLines() {
   const activeIds = new Set(selectedLineIds);
   scriptLinesEl.querySelectorAll('.script-line').forEach((row) => {
@@ -403,9 +453,12 @@ function resetReport() {
   emotionsEl.innerHTML = '';
   engagementEl.innerHTML = '';
   improvementsEl.innerHTML = '';
+  validationEl.innerHTML = '';
   scriptLinesEl.innerHTML = '';
   rawJsonEl.textContent = '';
   emptyOverviewEl.classList.remove('hidden');
+  emptyValidationEl.classList.remove('hidden');
+  updateValidationFixState(null);
   setReportHeader('No report loaded');
   setStats();
 }
@@ -432,6 +485,7 @@ function renderOverview(payload) {
   const validation = payload.validation;
   const tokenUsage = payload.token_usage || {};
   const topPriorities = payload.improvement_plan?.top_3_priorities || [];
+  const instructionCount = validation?.regeneration_instructions?.length || 0;
   const validationLabel = validation
     ? (validation.valid ? 'Passed' : 'Failed')
     : 'Not run';
@@ -439,7 +493,9 @@ function renderOverview(payload) {
     ? `${validation.errors?.length || 0} errors, ${validation.warnings?.length || 0} warnings`
     : 'Validation did not run for this payload.';
   const validatorPrompt = validation && !validation.valid
-    ? 'Validator flagged issues. Use Regenerate if you want another pass with the verdict in view.'
+    ? (instructionCount
+      ? `Validator flagged issues. ${instructionCount} regeneration instruction(s) ready in Validation.`
+      : 'Validator flagged issues. Use Regenerate if you want another pass with the verdict in view.')
     : 'Validator cleared the report or did not return blocking issues.';
 
   emptyOverviewEl.classList.add('hidden');
@@ -538,6 +594,112 @@ function renderOverview(payload) {
       ` : '<p>Validation did not run for this payload.</p>'}
     </article>
   `;
+}
+
+function renderValidation(payload) {
+  const validation = payload?.validation;
+  if (!validationEl || !emptyValidationEl) {
+    return;
+  }
+
+  if (!validation) {
+    validationEl.innerHTML = '';
+    emptyValidationEl.classList.remove('hidden');
+    updateValidationFixState(null);
+    return;
+  }
+
+  const errors = validation.errors || [];
+  const warnings = validation.warnings || [];
+  const groundingIssues = validation.grounding_issues || [];
+  const scoreIssues = validation.score_consistency_issues || [];
+  const instructions = validation.regeneration_instructions || [];
+  const verdictLabel = validation.valid ? 'Passed' : 'Failed';
+  const verdictPill = validation.valid ? 'success' : 'error';
+  const instructionPill = instructions.length ? 'warn' : 'neutral';
+
+  emptyValidationEl.classList.add('hidden');
+  validationEl.innerHTML = `
+    <article class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-kicker">Verdict</div>
+          <h3>${escapeHtml(verdictLabel)}</h3>
+        </div>
+        <div class="validation-pill ${verdictPill}">${escapeHtml(verdictLabel)}</div>
+      </div>
+      <div class="meta-grid">
+        <div class="meta-chip">
+          <strong>Retryable</strong>
+          <span>${validation.retryable ? 'Yes - regeneration allowed' : 'No - manual review needed'}</span>
+        </div>
+        <div class="meta-chip">
+          <strong>Errors</strong>
+          <span>${formatNumber(errors.length)}</span>
+        </div>
+        <div class="meta-chip">
+          <strong>Warnings</strong>
+          <span>${formatNumber(warnings.length)}</span>
+        </div>
+        <div class="meta-chip">
+          <strong>Grounding issues</strong>
+          <span>${formatNumber(groundingIssues.length)}</span>
+        </div>
+        <div class="meta-chip">
+          <strong>Score consistency</strong>
+          <span>${formatNumber(scoreIssues.length)}</span>
+        </div>
+      </div>
+    </article>
+    <article class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-kicker">Regeneration</div>
+          <h3>Validator guidance</h3>
+        </div>
+        <div class="validation-pill ${instructionPill}">${instructions.length ? 'Instructions ready' : 'No instructions'}</div>
+      </div>
+      ${renderValidationList(instructions, 'No regeneration instructions were returned.')}
+    </article>
+    <article class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-kicker">Errors</div>
+          <h3>Blocking issues</h3>
+        </div>
+      </div>
+      ${renderValidationList(errors, 'No errors were reported.')}
+    </article>
+    <article class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-kicker">Warnings</div>
+          <h3>Non-blocking issues</h3>
+        </div>
+      </div>
+      ${renderValidationList(warnings, 'No warnings were reported.')}
+    </article>
+    <article class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-kicker">Grounding</div>
+          <h3>Grounding issues</h3>
+        </div>
+      </div>
+      ${renderValidationList(groundingIssues, 'No grounding issues were reported.')}
+    </article>
+    <article class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-kicker">Scoring</div>
+          <h3>Score consistency issues</h3>
+        </div>
+      </div>
+      ${renderValidationList(scoreIssues, 'No score consistency issues were reported.')}
+    </article>
+  `;
+
+  updateValidationFixState(validation);
 }
 
 function renderBeats(beats = []) {
@@ -742,6 +904,7 @@ function renderResult(payload) {
   renderEmotions(payload.emotion_analysis || {});
   renderEngagement(payload.engagement_analysis || {});
   renderImprovements(payload.improvement_plan || {});
+  renderValidation(payload);
   renderScriptLines(payload.script_input || {});
   rawJsonEl.textContent = JSON.stringify(payload, null, 2);
 }
@@ -782,6 +945,28 @@ async function saveRegeneration() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ regeneration_prompt }),
   });
+}
+
+async function runValidationFix() {
+  const validation = currentPayload?.validation;
+  if (!validation) {
+    addChatMessage('No validation output to apply yet.', 'system');
+    return;
+  }
+
+  const prompt = buildRegenerationPrompt(validation);
+  if (!prompt) {
+    addChatMessage('No regeneration instructions were returned by the validator.', 'system');
+    return;
+  }
+
+  regenInput.value = prompt;
+  feedbackBlock.classList.remove('hidden');
+  await saveInput();
+  await saveConfig();
+  await saveRegeneration();
+  addChatMessage('Validator guidance applied. Regenerating now.', 'user');
+  startStream('regenerate');
 }
 
 async function saveConfig() {
@@ -1038,6 +1223,12 @@ regenBtn.addEventListener('click', async () => {
   addChatMessage('Regeneration prompt submitted.', 'user');
   startStream('regenerate');
 });
+
+if (applyValidationFixBtn) {
+  applyValidationFixBtn.addEventListener('click', async () => {
+    await runValidationFix();
+  });
+}
 
 cfgTemperature.addEventListener('input', () => {
   cfgTemperatureValue.textContent = Number(cfgTemperature.value).toFixed(2);

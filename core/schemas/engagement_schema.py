@@ -32,7 +32,9 @@ class FactorScore(StrictBaseModel):
 
 
 class EngagementAnalysis(StrictBaseModel):
-    overall_score: int = Field(..., ge=0, le=100, description="Overall score 0-100.")
+    overall_score: float = Field(
+        ..., ge=0, le=100, description="Overall score 0-100 (decimals allowed)."
+    )
     score_band: ScoreBand = Field(..., description="Qualitative score band.")
     factors: List[FactorScore] = Field(
         default_factory=list, description="Per-factor scores.")

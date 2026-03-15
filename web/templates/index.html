@@ -169,6 +169,7 @@
             <button class="tab" data-tab="emotions" type="button">Emotions</button>
             <button class="tab" data-tab="engagement" type="button">Engagement</button>
             <button class="tab" data-tab="improvements" type="button">Improvements</button>
+            <button class="tab" data-tab="validation" type="button">Validation</button>
             <button class="tab" data-tab="script" type="button">Script</button>
             <button class="tab" data-tab="raw" type="button">Raw JSON</button>
           </div>
@@ -195,6 +196,22 @@
 
           <div class="tab-panel" id="tab-improvements">
             <div class="stack" id="improvements"></div>
+          </div>
+
+          <div class="tab-panel" id="tab-validation">
+            <div class="validation-head">
+              <div>
+                <h3>Validator report</h3>
+                <p>Errors, warnings, and regeneration guidance from the validator.</p>
+              </div>
+              <button class="btn btn-primary" id="apply-validation-fix" type="button">Fix with validator guidance</button>
+            </div>
+            <p class="validation-hint" id="validation-fix-note">No validation results yet.</p>
+            <div class="empty-state" id="empty-validation">
+              <h3>No validation output</h3>
+              <p>Run an analysis to see validator errors, warnings, and regeneration instructions.</p>
+            </div>
+            <div class="stack" id="validation"></div>
           </div>
 
           <div class="tab-panel" id="tab-script">
