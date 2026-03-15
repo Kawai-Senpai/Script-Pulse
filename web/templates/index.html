@@ -76,6 +76,11 @@
         </div>
       </header>
 
+      <div class="progress-bar-wrap" id="progress-bar-wrap" aria-hidden="true">
+        <div class="progress-bar-fill" id="progress-bar-fill"></div>
+        <div class="progress-bar-label" id="progress-bar-label"></div>
+      </div>
+
       <div class="workspace">
 
         <section class="panel input-panel">
@@ -91,32 +96,35 @@
             <input id="title" type="text" placeholder="The Last Message" />
           </label>
 
-          <div class="control-grid">
-            <label class="field field-model">
-              <span>Model</span>
-              <select id="cfg-model">
-                <optgroup label="OpenAI GPT-5.4">
-                  <option value="gpt-5.4::minimal">GPT-5.4 / Minimal thinking</option>
-                  <option value="gpt-5.4::low">GPT-5.4 / Low thinking</option>
-                  <option value="gpt-5.4::medium" selected>GPT-5.4 / Medium thinking</option>
-                  <option value="gpt-5.4::high">GPT-5.4 / High thinking</option>
-                </optgroup>
-                <optgroup label="Anthropic">
-                  <option value="claude-sonnet-4.5">Claude Sonnet 4.5</option>
-                </optgroup>
-                <optgroup label="Google">
-                  <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview</option>
-                </optgroup>
-                <optgroup label="xAI">
-                  <option value="grok-4.1-fast">Grok 4.1 Fast</option>
-                </optgroup>
-              </select>
-              <p class="field-hint" id="cfg-model-note">OpenAI | 1.05M context | medium thinking</p>
-            </label>
+          <label class="field field-full">
+            <span>Model</span>
+            <select id="cfg-model">
+              <optgroup label="OpenAI GPT-5.4">
+                <option value="gpt-5.4::minimal">GPT-5.4 / Minimal thinking</option>
+                <option value="gpt-5.4::low">GPT-5.4 / Low thinking</option>
+                <option value="gpt-5.4::medium" selected>GPT-5.4 / Medium thinking</option>
+                <option value="gpt-5.4::high">GPT-5.4 / High thinking</option>
+              </optgroup>
+              <optgroup label="Anthropic">
+                <option value="claude-sonnet-4.5">Claude Sonnet 4.5</option>
+              </optgroup>
+              <optgroup label="Google">
+                <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview</option>
+              </optgroup>
+              <optgroup label="xAI">
+                <option value="grok-4.1-fast">Grok 4.1 Fast</option>
+              </optgroup>
+            </select>
+            <p class="field-hint" id="cfg-model-note">OpenAI | 1.05M context | medium thinking</p>
+          </label>
 
+          <div class="control-grid-2">
             <label class="field">
-              <span>Iterations</span>
-              <input id="cfg-iterations" type="number" min="1" value="1" />
+              <span>Iterations <span id="cfg-iterations-value">1</span></span>
+              <input id="cfg-iterations" type="range" min="1" max="5" step="1" value="1" />
+              <div class="range-stops">
+                <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+              </div>
             </label>
 
             <label class="field">
@@ -158,6 +166,9 @@
               <p class="panel-label">Report</p>
               <h2 id="report-title">No report loaded</h2>
               <p class="report-note" id="report-context">Run an analysis to populate the report, token usage, and evidence view.</p>
+            </div>
+            <div class="report-actions">
+              <button class="btn btn-quiet" id="export-pdf" type="button">Export PDF</button>
             </div>
             <div class="report-meta" id="report-meta"></div>
           </div>

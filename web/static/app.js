@@ -33,10 +33,15 @@ const statSessionNoteEl = document.getElementById('stat-session-note');
 const cfgModel = document.getElementById('cfg-model');
 const cfgModelNote = document.getElementById('cfg-model-note');
 const cfgIterations = document.getElementById('cfg-iterations');
+const cfgIterationsValue = document.getElementById('cfg-iterations-value');
 const cfgTemperature = document.getElementById('cfg-temperature');
 const cfgTemperatureValue = document.getElementById('cfg-temperature-value');
 const applyValidationFixBtn = document.getElementById('apply-validation-fix');
 const validationFixNoteEl = document.getElementById('validation-fix-note');
+const exportPdfBtn = document.getElementById('export-pdf');
+const progressWrap = document.getElementById('progress-bar-wrap');
+const progressFill = document.getElementById('progress-bar-fill');
+const progressLabel = document.getElementById('progress-bar-label');
 
 const tabs = Array.from(document.querySelectorAll('.tab'));
 const panels = Array.from(document.querySelectorAll('.tab-panel'));
@@ -77,6 +82,29 @@ const MODEL_CATALOG = {
     note: 'xAI | 2.0M context | latest fast Grok route',
   },
 };
+
+const FEED_KEY_BASE = 'scriptpulse_feed';
+const MAX_FEED_ENTRIES = 80;
+
+const STAGE_LABELS = {
+  start: 'Starting',
+  iteration: 'Iteration',
+  beat_extraction: 'Beats',
+  emotion_analysis: 'Emotions',
+  engagement_scoring: 'Engagement',
+  improvement_plan: 'Improvements',
+  validation: 'Validation',
+  retry: 'Retry',
+  complete: 'Complete',
+};
+
+const STAGE_ORDER = [
+  'beat_extraction',
+  'emotion_analysis',
+  'engagement_scoring',
+  'improvement_plan',
+  'validation',
+];
 
 const ICONS = {
   format: `
@@ -192,6 +220,26 @@ function setStatus(label, detail, state = 'idle') {
   statusDetail.textContent = detail || '';
 }
 
+function setProgress(stage, status, visible = true) {
+  if (!progressWrap || !progressFill || !progressLabel) {
+    return;
+  }
+  progressWrap.classList.toggle('visible', visible);
+  if (!visible) {
+    return;
+  }
+
+  const idx = STAGE_ORDER.indexOf(stage);
+  const pct = idx < 0
+    ? 10
+    : Math.round(((idx + 1) / STAGE_ORDER.length) * 100);
+  const label = STAGE_LABELS[stage] || stage || 'Working';
+  const detail = status ? `${label} - ${status}` : label;
+
+  progressFill.style.width = `${pct}%`;
+  progressLabel.textContent = detail;
+}
+
 function setStats({
   tokens = '0',
   tokensNote = 'No run yet',
@@ -212,16 +260,127 @@ function setStats({
   statSessionNoteEl.textContent = sessionNote;
 }
 
-function addChatMessage(text, role = 'system') {
-  const bubble = document.createElement('div');
-  bubble.className = `chat-bubble ${role}`;
-  bubble.textContent = text;
-  chatFeed.appendChild(bubble);
-  chatFeed.scrollTop = chatFeed.scrollHeight;
+function getFeedKey() {
+  return `${FEED_KEY_BASE}:${currentSessionId || 'draft'}`;
 }
 
-function clearChat() {
+function getFeedStore() {
+  try {
+    return JSON.parse(localStorage.getItem(getFeedKey()) || '[]');
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveFeedStore(entries = []) {
+  try {
+    localStorage.setItem(getFeedKey(), JSON.stringify(entries.slice(0, MAX_FEED_ENTRIES)));
+  } catch (error) {
+    return;
+  }
+}
+
+function formatFeedTime(value) {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) {
+    return '??-?? ??:??:??';
+  }
+  const dateStr = date.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit' });
+  const timeStr = date.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+  return `${dateStr} ${timeStr}`;
+}
+
+function renderFeedEntry(entry, insert = 'append') {
+  const emptyState = chatFeed.querySelector('.chat-empty');
+  if (emptyState) {
+    emptyState.remove();
+  }
+  const bubble = document.createElement('div');
+  const prefix = entry.role === 'user' ? '→' : '·';
+  bubble.className = `chat-bubble ${entry.role}`;
+  bubble.innerHTML = `
+    <span class="log-time">${escapeHtml(formatFeedTime(entry.time))}</span>
+    <span class="log-prefix">${prefix}</span>
+    <span class="log-text">${escapeHtml(entry.text)}</span>
+  `;
+
+  const latest = chatFeed.querySelector('.chat-bubble.is-latest');
+  if (latest) {
+    latest.classList.remove('is-latest');
+  }
+  bubble.classList.add('is-latest');
+
+  if (insert === 'prepend') {
+    chatFeed.prepend(bubble);
+  } else {
+    chatFeed.append(bubble);
+  }
+
+  chatFeed.scrollTop = 0;
+}
+
+function renderFeedEmptyState() {
+  if (!chatFeed) {
+    return;
+  }
+  const existing = chatFeed.querySelector('.chat-empty');
+  const entries = getFeedStore();
+  if (entries.length) {
+    if (existing) {
+      existing.remove();
+    }
+    return;
+  }
+  if (existing) {
+    return;
+  }
+  const empty = document.createElement('div');
+  empty.className = 'chat-empty';
+  empty.textContent = 'Updates will appear here.';
+  chatFeed.append(empty);
+}
+
+function addChatMessage(text, role = 'system') {
+  const entry = {
+    text: String(text || ''),
+    role,
+    time: new Date().toISOString(),
+  };
+  const entries = getFeedStore();
+  entries.unshift(entry);
+  saveFeedStore(entries);
+  renderFeedEntry(entry, 'append');
+}
+
+function clearChat({ wipeStore = false } = {}) {
   chatFeed.innerHTML = '';
+  if (wipeStore) {
+    localStorage.removeItem(getFeedKey());
+    renderFeedEmptyState();
+  }
+}
+
+function restoreFeed() {
+  const entries = getFeedStore();
+  if (!entries.length) {
+    renderFeedEmptyState();
+    return;
+  }
+
+  [...entries].reverse().forEach((entry) => {
+    renderFeedEntry(entry, 'append');
+  });
+  renderFeedEmptyState();
+}
+
+function syncFeedView() {
+  clearChat({ wipeStore: false });
+  restoreFeed();
 }
 
 // ─── Tab Indicator ─────────────────────────────────────────────
@@ -250,6 +409,7 @@ function setMode(mode) {
     titleInput.setAttribute('disabled', 'disabled');
     runBtn.setAttribute('disabled', 'disabled');
     regenBtn.removeAttribute('disabled');
+    setProgress('', '', false);
     return;
   }
 
@@ -268,6 +428,7 @@ function setMode(mode) {
   titleInput.removeAttribute('disabled');
   runBtn.removeAttribute('disabled');
   regenBtn.setAttribute('disabled', 'disabled');
+  setProgress('', '', false);
 }
 
 function setSessionId(sessionId) {
@@ -308,6 +469,9 @@ function applyConfig(config = {}) {
 
   cfgModel.value = ensureModelOption(merged.model || DEFAULT_CONFIG.model);
   cfgIterations.value = String(Math.max(1, parseInt(merged.max_iterations || DEFAULT_CONFIG.max_iterations, 10)));
+  if (cfgIterationsValue) {
+    cfgIterationsValue.textContent = cfgIterations.value;
+  }
   cfgTemperature.value = Number(merged.temperature ?? DEFAULT_CONFIG.temperature).toFixed(2);
   cfgTemperatureValue.textContent = Number(cfgTemperature.value).toFixed(2);
   updateModelNote();
@@ -429,6 +593,11 @@ function clearEvidenceSelection() {
 
 function setReportHeader(title, scriptInputPayload = null) {
   reportTitleEl.textContent = title;
+  const heading = document.querySelector('.report-heading');
+  if (heading) {
+    heading.dataset.title = title;
+    heading.dataset.date = new Date().toLocaleDateString();
+  }
 
   if (!scriptInputPayload) {
     reportContextEl.textContent = 'Run an analysis to populate the report, token usage, and evidence view.';
@@ -918,6 +1087,7 @@ async function createSession() {
   });
   const data = await response.json();
   setSessionId(data.session_id);
+  syncFeedView();
   await refreshSessions();
   setStatus('Ready', 'Session created.', 'idle');
 }
@@ -994,10 +1164,10 @@ function closeCurrentSource() {
 
 function startStream(mode) {
   closeCurrentSource();
-  clearChat();
   resetReport();
   setMode('running');
   setStatus('Running', 'Streaming backend progress.', 'running');
+  setProgress('start', 'starting', true);
   addChatMessage(`Mode: ${mode}.`, 'system');
 
   currentSource = new EventSource(`/api/sessions/${currentSessionId}/stream?mode=${mode}`);
@@ -1011,12 +1181,16 @@ function startStream(mode) {
     if (data.tokens) {
       detailBits.push(`${formatNumber(data.tokens)} tokens`);
     }
+    const label = STAGE_LABELS[data.stage] || data.stage || 'Working';
+    setProgress(data.stage, data.status, true);
+    setStatus('Running', `${label}${data.status ? ` - ${data.status}` : ''}`, 'running');
     addChatMessage(`${data.stage} - ${data.status}${detailBits.length ? ` (${detailBits.join(', ')})` : ''}`, 'system');
   });
 
   currentSource.addEventListener('result', (event) => {
     const payload = JSON.parse(event.data);
     renderResult(payload);
+    setProgress('', '', false);
     if (payload.validation && payload.validation.valid === false) {
       setStatus('Review', `Validator flagged issues after ${formatNumber(payload.iterations)} iteration(s).`, 'error');
       addChatMessage('Analysis complete, but the validator found issues. Use Regenerate if you want another pass.', 'system');
@@ -1040,6 +1214,7 @@ function startStream(mode) {
     setStatus('Error', payload.message || 'Analysis failed.', 'error');
     addChatMessage(payload.message || 'Analysis failed.', 'system');
     setMode('draft');
+    setProgress('', '', false);
     closeCurrentSource();
   });
 
@@ -1072,6 +1247,7 @@ function renderSessionList(sessions) {
   `;
   draft.addEventListener('click', () => {
     setSessionId(null);
+    syncFeedView();
     titleInput.value = '';
     scriptInput.value = '';
     regenInput.value = '';
@@ -1107,6 +1283,7 @@ function renderSessionList(sessions) {
       await fetch(`/api/sessions/${session.session_id}`, { method: 'DELETE' });
       if (session.session_id === currentSessionId) {
         setSessionId(null);
+        syncFeedView();
         titleInput.value = '';
         scriptInput.value = '';
         regenInput.value = '';
@@ -1150,6 +1327,7 @@ async function loadSession(sessionId) {
   const response = await fetch(`/api/sessions/${sessionId}`);
   const data = await response.json();
   setSessionId(sessionId);
+  syncFeedView();
   titleInput.value = data.title || '';
   scriptInput.value = data.raw_text || '';
   regenInput.value = data.regeneration_prompt || '';
@@ -1230,6 +1408,12 @@ if (applyValidationFixBtn) {
   });
 }
 
+cfgIterations.addEventListener('input', () => {
+  if (cfgIterationsValue) {
+    cfgIterationsValue.textContent = cfgIterations.value;
+  }
+});
+
 cfgTemperature.addEventListener('input', () => {
   cfgTemperatureValue.textContent = Number(cfgTemperature.value).toFixed(2);
 });
@@ -1237,6 +1421,16 @@ cfgTemperature.addEventListener('input', () => {
 cfgModel.addEventListener('change', () => {
   updateModelNote();
 });
+
+if (exportPdfBtn) {
+  exportPdfBtn.addEventListener('click', () => {
+    if (!currentPayload) {
+      addChatMessage('No report loaded yet. Run an analysis first.', 'system');
+      return;
+    }
+    window.print();
+  });
+}
 
 // ─── Sidebar Toggle ─────────────────────────────────────────────
 const sidebarEl = document.getElementById('sidebar');
@@ -1268,6 +1462,7 @@ async function initialize() {
   resetReport();
   applyConfig();
   setMode('draft');
+  syncFeedView();
   await refreshSessions();
 
   // Position tab indicator at the initial active tab
