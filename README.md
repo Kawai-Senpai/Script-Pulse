@@ -30,6 +30,31 @@ Script Pulse is a local FastAPI app that turns pasted script text into a grounde
   - [UI and sessions](doc/ui_and_sessions.md)
   - [PDF export notes](doc/pdf_export.md)
 
+## Screenshots
+
+<p align="center">
+  <img src="assets/screenshots/screenshot_01.png" width="100%" alt="Script Pulse workspace" />
+</p>
+
+<details open>
+  <summary>More screenshots</summary>
+
+  <table>
+    <tr>
+      <td><img src="assets/screenshots/screenshot_02.png" width="100%" alt="Script Pulse screenshot 02" /></td>
+      <td><img src="assets/screenshots/screenshot_03.png" width="100%" alt="Script Pulse screenshot 03" /></td>
+    </tr>
+    <tr>
+      <td><img src="assets/screenshots/screenshot_04.png" width="100%" alt="Script Pulse screenshot 04" /></td>
+      <td><img src="assets/screenshots/screenshot_05.png" width="100%" alt="Script Pulse screenshot 05" /></td>
+    </tr>
+    <tr>
+      <td><img src="assets/screenshots/screenshot_06.png" width="100%" alt="Script Pulse screenshot 06" /></td>
+      <td><img src="assets/screenshots/screenshot_07.png" width="100%" alt="Script Pulse screenshot 07" /></td>
+    </tr>
+  </table>
+</details>
+
 ## Quickstart
 
 ```powershell
