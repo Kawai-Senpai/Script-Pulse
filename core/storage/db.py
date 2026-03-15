@@ -17,6 +17,16 @@ def _utc_now() -> str:
     return datetime.utcnow().isoformat() + "Z"
 
 
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+    columns = {
+        row[1]
+        for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+    }
+    if column in columns:
+        return
+    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+
 def init_db() -> None:
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -34,6 +44,7 @@ def init_db() -> None:
                 last_beat_json TEXT,
                 last_emotion_json TEXT,
                 last_improvement_json TEXT,
+                last_token_usage_json TEXT,
                 iterations INTEGER,
                 tokens_used INTEGER,
                 last_error TEXT,
@@ -51,6 +62,7 @@ def init_db() -> None:
             )
             """
         )
+        _ensure_column(conn, "sessions", "last_token_usage_json", "TEXT")
         conn.commit()
     finally:
         conn.close()
@@ -134,6 +146,8 @@ def update_status(session_id: str, status: str) -> None:
 
 def save_run_result(session_id: str, payload: Dict[str, Any]) -> None:
     now = _utc_now()
+    validation = payload.get("validation") or {}
+    status = "review" if validation.get("valid") is False else "complete"
     conn = _connect()
     try:
         conn.execute(
@@ -146,6 +160,7 @@ def save_run_result(session_id: str, payload: Dict[str, Any]) -> None:
                 last_beat_json = ?,
                 last_emotion_json = ?,
                 last_improvement_json = ?,
+                last_token_usage_json = ?,
                 iterations = ?,
                 tokens_used = ?,
                 last_error = ?,
@@ -153,13 +168,14 @@ def save_run_result(session_id: str, payload: Dict[str, Any]) -> None:
             WHERE session_id = ?
             """,
             (
-                "complete",
+                status,
                 json.dumps(payload.get("report"), ensure_ascii=True),
                 json.dumps(payload.get("validation"), ensure_ascii=True),
                 json.dumps(payload.get("engagement_analysis"), ensure_ascii=True),
                 json.dumps(payload.get("beat_extraction"), ensure_ascii=True),
                 json.dumps(payload.get("emotion_analysis"), ensure_ascii=True),
                 json.dumps(payload.get("improvement_plan"), ensure_ascii=True),
+                json.dumps(payload.get("token_usage"), ensure_ascii=True),
                 payload.get("iterations"),
                 payload.get("tokens_used"),
                 None,

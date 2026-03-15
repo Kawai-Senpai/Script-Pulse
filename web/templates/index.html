@@ -3,138 +3,208 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Script Pulse - evidence-led script analysis with live progress and sessioned regeneration." />
+  <meta name="description" content="Script Pulse - evidence-led script analysis with grounded line references and token-aware reporting." />
   <title>Script Pulse</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Spline+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
-  <div class="ambient-glow"></div>
-  <div class="app-shell">
+  <div class="shell">
     <aside class="sidebar">
-      <div class="brand-block">
+      <div class="sidebar-head">
         <p class="brand">Script Pulse</p>
-        <span class="brand-sub">Sessions</span>
+        <p class="brand-note">Grounded script analysis with visible evidence, validator verdicts, and token usage you can actually inspect.</p>
       </div>
-      <div class="session-list" id="session-list"></div>
-      <div class="sidebar-footer">
-        <p>New drafts open instantly. Saved sessions appear after your first run.</p>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-head">
+          <p class="sidebar-label">Sessions</p>
+        </div>
+        <div class="session-list" id="session-list"></div>
+      </div>
+
+      <div class="sidebar-foot">
+        <p>Saved runs keep the latest report, validation output, and token summary. Drafts stay editable until the first run.</p>
       </div>
     </aside>
 
-    <section class="workspace">
-      <header class="workspace-header">
-        <div>
-          <p class="eyebrow">Analysis Studio</p>
-          <h1>Chat-first script analysis</h1>
-          <p class="subtitle">Stream progress, inspect every rubric score, and regenerate with precise feedback.</p>
+    <main class="page">
+      <header class="page-header">
+        <div class="hero-copy">
+          <p class="eyebrow">Analysis Workspace</p>
+          <h1>Cleaner reads. Smaller UI. Better evidence.</h1>
+          <p class="subtitle">Paste the script, run the analysis, inspect exact cited lines, then regenerate only when the validator says the report needs another pass.</p>
         </div>
+
         <div class="status-card">
-          <div class="status-pill" id="status-pill">Idle</div>
-          <div class="status-detail" id="status-detail">Waiting for input.</div>
+          <div class="status-pill" id="status-pill" data-state="idle">Idle</div>
+          <p class="status-detail" id="status-detail">Waiting for script input.</p>
         </div>
       </header>
 
-      <div class="workspace-body">
-        <div class="chat-panel">
-          <div class="config-panel">
-            <div class="config-title">Session Controls</div>
-            <div class="config-grid">
-              <label class="config-item">
-                <span>Model</span>
-                <input id="cfg-model" type="text" placeholder="gpt-5.4" />
-              </label>
-              <label class="config-item">
-                <span>Iterations</span>
-                <input id="cfg-iterations" type="number" min="1" value="1" />
-              </label>
-              <label class="config-item">
-                <span>Reasoning iterations</span>
-                <input id="cfg-reasoning-iterations" type="number" min="1" value="2" />
-              </label>
-              <label class="config-item">
-                <span>Temperature <span id="cfg-temperature-value">0.20</span></span>
-                <input id="cfg-temperature" type="range" min="0" max="1" step="0.05" value="0.2" />
-              </label>
-              <label class="config-item toggle">
-                <span>Steps pipeline</span>
-                <input id="cfg-steps" type="checkbox" />
-              </label>
-              <label class="config-item toggle">
-                <span>Reasoning pipeline</span>
-                <input id="cfg-reasoning" type="checkbox" />
-              </label>
+      <section class="stats-grid">
+        <article class="stat-card">
+          <span class="stat-label">Tokens</span>
+          <strong class="stat-value" id="stat-tokens">0</strong>
+          <span class="stat-note" id="stat-tokens-note">No run yet</span>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Iterations</span>
+          <strong class="stat-value" id="stat-iterations">0</strong>
+          <span class="stat-note" id="stat-iterations-note">Actual analysis passes</span>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Validation</span>
+          <strong class="stat-value" id="stat-validation">Not run</strong>
+          <span class="stat-note" id="stat-validation-note">Awaiting report verdict</span>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Session</span>
+          <strong class="stat-value" id="stat-session">Draft</strong>
+          <span class="stat-note" id="stat-session-note">Unsaved working copy</span>
+        </article>
+      </section>
+
+      <section class="layout">
+        <section class="panel editor-panel">
+          <div class="panel-head">
+            <div>
+              <p class="panel-label">Input</p>
+              <h2>Source and parameters</h2>
             </div>
           </div>
 
-          <div class="chat-feed" id="chat-feed"></div>
+          <label class="field field-full">
+            <span>Title</span>
+            <input id="title" type="text" placeholder="The Last Message" />
+          </label>
 
-          <div class="composer">
-            <label>
-              <span>Title</span>
-              <input id="title" type="text" placeholder="The Last Message" />
+          <div class="control-grid">
+            <label class="field field-model">
+              <span>Model</span>
+              <select id="cfg-model">
+                <optgroup label="OpenAI GPT-5.4">
+                  <option value="gpt-5.4::minimal">GPT-5.4 / Minimal thinking</option>
+                  <option value="gpt-5.4::low">GPT-5.4 / Low thinking</option>
+                  <option value="gpt-5.4::medium" selected>GPT-5.4 / Medium thinking</option>
+                  <option value="gpt-5.4::high">GPT-5.4 / High thinking</option>
+                </optgroup>
+                <optgroup label="Anthropic">
+                  <option value="claude-sonnet-4.5">Claude Sonnet 4.5</option>
+                </optgroup>
+                <optgroup label="Google">
+                  <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview</option>
+                </optgroup>
+                <optgroup label="xAI">
+                  <option value="grok-4.1-fast">Grok 4.1 Fast</option>
+                </optgroup>
+              </select>
+              <p class="field-hint" id="cfg-model-note">OpenAI | 1.05M context | medium thinking</p>
             </label>
-            <label>
-              <span>Script</span>
-              <textarea id="script" rows="7" placeholder="Paste script text here..."></textarea>
+
+            <label class="field field-compact">
+              <span>Iterations</span>
+              <input id="cfg-iterations" type="number" min="1" value="1" />
             </label>
-            <div id="feedback-block" class="feedback-block hidden">
-              <label>
-                <span>Feedback for revision</span>
-                <textarea id="regen" rows="3" placeholder="Describe what you want changed based on the current report..."></textarea>
-              </label>
-              <p class="feedback-note">Script edits are locked after the first report. Start a new draft to change the script.</p>
-            </div>
-            <div class="composer-actions">
-              <button class="btn primary" id="run-analysis">Run Analysis</button>
-              <button class="btn" id="run-regenerate">Regenerate</button>
-            </div>
+
+            <label class="field field-compact">
+              <span>Temperature <span id="cfg-temperature-value">0.20</span></span>
+              <input id="cfg-temperature" type="range" min="0" max="1" step="0.05" value="0.2" />
+            </label>
           </div>
-        </div>
 
-        <div class="results-panel hidden" id="results-panel">
+          <label class="field field-full">
+            <span>Script</span>
+            <textarea id="script" rows="12" placeholder="Paste script text here..."></textarea>
+          </label>
+
+          <div id="feedback-block" class="feedback-block hidden">
+            <label class="field field-full">
+              <span>Regeneration prompt</span>
+              <textarea id="regen" rows="4" placeholder="Ask for cleaner grounding, stronger pacing, better emotional justification, or anything else you want changed..."></textarea>
+            </label>
+            <p class="feedback-note">The source text locks after a completed run. Start a new draft if you want to change the script itself.</p>
+          </div>
+
+          <div class="action-row">
+            <button class="btn btn-primary" id="run-analysis" type="button">Run Analysis</button>
+            <button class="btn" id="run-regenerate" type="button">Regenerate</button>
+          </div>
+
+          <div class="feed-panel">
+            <div class="section-head">
+              <div>
+                <h3>Run Feed</h3>
+                <p>Streaming status from the backend worker.</p>
+              </div>
+            </div>
+            <div class="chat-feed" id="chat-feed"></div>
+          </div>
+        </section>
+
+        <section class="panel report-panel">
+          <div class="panel-head report-head">
+            <div class="report-heading">
+              <p class="panel-label">Report</p>
+              <h2 id="report-title">No report loaded</h2>
+              <p class="report-note" id="report-context">Run an analysis to populate the report, token usage, and evidence view.</p>
+            </div>
+            <div class="report-meta" id="report-meta"></div>
+          </div>
+
           <div class="tabs">
-            <button class="tab active" data-tab="overview">Overview</button>
-            <button class="tab" data-tab="beats">Beats</button>
-            <button class="tab" data-tab="emotions">Emotions</button>
-            <button class="tab" data-tab="engagement">Engagement</button>
-            <button class="tab" data-tab="improvements">Improvements</button>
-            <button class="tab" data-tab="raw">Raw JSON</button>
+            <button class="tab active" data-tab="overview" type="button">Overview</button>
+            <button class="tab" data-tab="beats" type="button">Beats</button>
+            <button class="tab" data-tab="emotions" type="button">Emotions</button>
+            <button class="tab" data-tab="engagement" type="button">Engagement</button>
+            <button class="tab" data-tab="improvements" type="button">Improvements</button>
+            <button class="tab" data-tab="script" type="button">Script</button>
+            <button class="tab" data-tab="raw" type="button">Raw JSON</button>
           </div>
 
           <div class="tab-panel active" id="tab-overview">
-            <div class="skeleton-card" id="overview-skeleton">
-              <div class="skeleton-line"></div>
-              <div class="skeleton-line"></div>
-              <div class="skeleton-line short"></div>
+            <div class="empty-state" id="empty-overview">
+              <h3>Nothing to show yet</h3>
+              <p>Submit a script to see the summary, token usage, validation state, and report priorities.</p>
             </div>
-            <div class="overview" id="overview"></div>
+            <div class="overview-grid" id="overview"></div>
           </div>
 
           <div class="tab-panel" id="tab-beats">
-            <div class="data-grid" id="beats"></div>
+            <div class="stack" id="beats"></div>
           </div>
 
           <div class="tab-panel" id="tab-emotions">
-            <div class="data-grid" id="emotions"></div>
+            <div class="stack" id="emotions"></div>
           </div>
 
           <div class="tab-panel" id="tab-engagement">
-            <div class="data-grid" id="engagement"></div>
+            <div class="stack" id="engagement"></div>
           </div>
 
           <div class="tab-panel" id="tab-improvements">
-            <div class="data-grid" id="improvements"></div>
+            <div class="stack" id="improvements"></div>
+          </div>
+
+          <div class="tab-panel" id="tab-script">
+            <div class="script-head">
+              <div>
+                <h3>Normalized Script</h3>
+                <p>Evidence chips jump straight to the exact cited lines.</p>
+              </div>
+              <button class="btn btn-quiet" id="clear-evidence" type="button">Clear Highlight</button>
+            </div>
+            <div class="script-lines" id="script-lines"></div>
           </div>
 
           <div class="tab-panel" id="tab-raw">
             <pre id="raw-json"></pre>
           </div>
-        </div>
-      </div>
-    </section>
+        </section>
+      </section>
+    </main>
   </div>
   <script src="/static/app.js"></script>
 </body>

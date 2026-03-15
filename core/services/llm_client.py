@@ -8,6 +8,7 @@ from ultraprint.logging import logger
 
 from ..config import log_config
 from ..keys.key import openrouter_api_key
+from ..utils.analysis_utils import resolve_token_count
 
 
 log = logger("llm_log", **log_config)
@@ -38,8 +39,8 @@ def send_ultragpt_chat(
     temperature: float,
     response_format: Any = None,
     reasoning_iterations: int = 2,
-    steps_pipeline: bool = True,
-    reasoning_pipeline: bool = True,
+    steps_pipeline: bool = False,
+    reasoning_pipeline: bool = False,
     steps_model: Optional[str] = None,
     reasoning_model: Optional[str] = None,
     tools: Optional[List[Any]] = None,
@@ -78,4 +79,8 @@ def send_ultragpt_chat(
         log.error("UltraGPT chat failed: %s", exc)
         raise exc
 
-    return content, total_tokens or 0, details or {}
+    normalized_details = details or {}
+    resolved_total_tokens = resolve_token_count(total_tokens, normalized_details)
+    normalized_details["resolved_total_tokens"] = resolved_total_tokens
+
+    return content, resolved_total_tokens, normalized_details

@@ -1,47 +1,211 @@
 const sessionListEl = document.getElementById('session-list');
 const runBtn = document.getElementById('run-analysis');
 const regenBtn = document.getElementById('run-regenerate');
+const clearEvidenceBtn = document.getElementById('clear-evidence');
 const statusPill = document.getElementById('status-pill');
 const statusDetail = document.getElementById('status-detail');
+const titleInput = document.getElementById('title');
+const scriptInput = document.getElementById('script');
+const regenInput = document.getElementById('regen');
+const feedbackBlock = document.getElementById('feedback-block');
+const chatFeed = document.getElementById('chat-feed');
 const overviewEl = document.getElementById('overview');
-const overviewSkeleton = document.getElementById('overview-skeleton');
+const emptyOverviewEl = document.getElementById('empty-overview');
 const beatsEl = document.getElementById('beats');
 const emotionsEl = document.getElementById('emotions');
 const engagementEl = document.getElementById('engagement');
 const improvementsEl = document.getElementById('improvements');
+const scriptLinesEl = document.getElementById('script-lines');
 const rawJsonEl = document.getElementById('raw-json');
-const chatFeed = document.getElementById('chat-feed');
-const resultsPanel = document.getElementById('results-panel');
-const feedbackBlock = document.getElementById('feedback-block');
-const titleInput = document.getElementById('title');
-const scriptInput = document.getElementById('script');
-const regenInput = document.getElementById('regen');
+const reportTitleEl = document.getElementById('report-title');
+const reportContextEl = document.getElementById('report-context');
+const reportMetaEl = document.getElementById('report-meta');
+const statTokensEl = document.getElementById('stat-tokens');
+const statTokensNoteEl = document.getElementById('stat-tokens-note');
+const statIterationsEl = document.getElementById('stat-iterations');
+const statIterationsNoteEl = document.getElementById('stat-iterations-note');
+const statValidationEl = document.getElementById('stat-validation');
+const statValidationNoteEl = document.getElementById('stat-validation-note');
+const statSessionEl = document.getElementById('stat-session');
+const statSessionNoteEl = document.getElementById('stat-session-note');
 const cfgModel = document.getElementById('cfg-model');
+const cfgModelNote = document.getElementById('cfg-model-note');
 const cfgIterations = document.getElementById('cfg-iterations');
-const cfgReasoningIterations = document.getElementById('cfg-reasoning-iterations');
 const cfgTemperature = document.getElementById('cfg-temperature');
 const cfgTemperatureValue = document.getElementById('cfg-temperature-value');
-const cfgSteps = document.getElementById('cfg-steps');
-const cfgReasoning = document.getElementById('cfg-reasoning');
+
+const tabs = Array.from(document.querySelectorAll('.tab'));
+const panels = Array.from(document.querySelectorAll('.tab-panel'));
+
+const DEFAULT_CONFIG = {
+  model: 'gpt-5.4::medium',
+  temperature: 0.2,
+  max_iterations: 1,
+};
+
+const MODEL_CATALOG = {
+  'gpt-5.4::minimal': {
+    label: 'GPT-5.4 / Minimal thinking',
+    note: 'OpenAI | 1.05M context | minimal thinking',
+  },
+  'gpt-5.4::low': {
+    label: 'GPT-5.4 / Low thinking',
+    note: 'OpenAI | 1.05M context | low thinking',
+  },
+  'gpt-5.4::medium': {
+    label: 'GPT-5.4 / Medium thinking',
+    note: 'OpenAI | 1.05M context | medium thinking',
+  },
+  'gpt-5.4::high': {
+    label: 'GPT-5.4 / High thinking',
+    note: 'OpenAI | 1.05M context | high thinking',
+  },
+  'claude-sonnet-4.5': {
+    label: 'Claude Sonnet 4.5',
+    note: 'Anthropic | 1.0M context | native reasoning',
+  },
+  'gemini-3.1-pro-preview': {
+    label: 'Gemini 3.1 Pro Preview',
+    note: 'Google | 1.05M context | reasoning tokens available',
+  },
+  'grok-4.1-fast': {
+    label: 'Grok 4.1 Fast',
+    note: 'xAI | 2.0M context | latest fast Grok route',
+  },
+};
+
+const ICONS = {
+  format: `
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="2.5" y="2.5" width="11" height="11" rx="2"></rect>
+      <path d="M5 6h6M5 8h6M5 10h4"></path>
+    </svg>
+  `,
+  lines: `
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M5 4h8M5 8h8M5 12h8"></path>
+      <circle cx="3" cy="4" r="0.8"></circle>
+      <circle cx="3" cy="8" r="0.8"></circle>
+      <circle cx="3" cy="12" r="0.8"></circle>
+    </svg>
+  `,
+  characters: `
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <circle cx="8" cy="5.25" r="2.5"></circle>
+      <path d="M3.5 13c0-2.2 2.05-4 4.5-4s4.5 1.8 4.5 4"></path>
+    </svg>
+  `,
+  clock: `
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <circle cx="8" cy="8" r="5.5"></circle>
+      <path d="M8 5v3.4l2.3 1.4"></path>
+    </svg>
+  `,
+};
 
 let currentSessionId = null;
 let currentSource = null;
+let currentPayload = null;
+let currentLineLookup = new Map();
+let selectedLineIds = [];
 
-const tabs = document.querySelectorAll('.tab');
-const panels = document.querySelectorAll('.tab-panel');
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
 
-tabs.forEach((tab) => {
-  tab.addEventListener('click', () => {
-    tabs.forEach((btn) => btn.classList.remove('active'));
-    panels.forEach((panel) => panel.classList.remove('active'));
-    tab.classList.add('active');
-    document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+function formatNumber(value) {
+  const numericValue = Number(value || 0);
+  return Number.isFinite(numericValue) ? numericValue.toLocaleString() : '0';
+}
+
+function formatScriptFormat(value) {
+  const mapping = {
+    scene_dialogue: 'Scene + Dialogue',
+    dialogue: 'Dialogue',
+    mixed: 'Mixed',
+    unknown: 'Unknown',
+  };
+  return mapping[value] || 'Unknown';
+}
+
+function formatDateTime(value, compact = false) {
+  if (!value) {
+    return compact ? 'Just now' : 'just now';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  const formatter = new Intl.DateTimeFormat(undefined, compact ? {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  } : {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
   });
-});
 
-function setStatus(label, detail) {
+  return formatter.format(date);
+}
+
+function capitalize(value) {
+  if (!value) {
+    return 'Idle';
+  }
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function iconMarkup(name) {
+  return `<span class="meta-icon">${ICONS[name] || ''}</span>`;
+}
+
+function buildHeaderMetric(icon, label, value) {
+  return `
+    <div class="report-metric">
+      ${iconMarkup(icon)}
+      <div>
+        <span class="report-metric-label">${escapeHtml(label)}</span>
+        <strong>${escapeHtml(value)}</strong>
+      </div>
+    </div>
+  `;
+}
+
+function setStatus(label, detail, state = 'idle') {
   statusPill.textContent = label;
+  statusPill.dataset.state = state;
   statusDetail.textContent = detail || '';
+}
+
+function setStats({
+  tokens = '0',
+  tokensNote = 'No run yet',
+  iterations = '0',
+  iterationsNote = 'Actual analysis passes',
+  validation = 'Not run',
+  validationNote = 'Awaiting report verdict',
+  session = 'Draft',
+  sessionNote = 'Unsaved working copy',
+} = {}) {
+  statTokensEl.textContent = tokens;
+  statTokensNoteEl.textContent = tokensNote;
+  statIterationsEl.textContent = iterations;
+  statIterationsNoteEl.textContent = iterationsNote;
+  statValidationEl.textContent = validation;
+  statValidationNoteEl.textContent = validationNote;
+  statSessionEl.textContent = session;
+  statSessionNoteEl.textContent = sessionNote;
 }
 
 function addChatMessage(text, role = 'system') {
@@ -56,33 +220,40 @@ function clearChat() {
   chatFeed.innerHTML = '';
 }
 
+function activateTab(tabName) {
+  tabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === tabName));
+  panels.forEach((panel) => panel.classList.toggle('active', panel.id === `tab-${tabName}`));
+}
+
+tabs.forEach((tab) => {
+  tab.addEventListener('click', () => activateTab(tab.dataset.tab));
+});
+
 function setMode(mode) {
   if (mode === 'complete') {
-    resultsPanel.classList.remove('hidden');
     feedbackBlock.classList.remove('hidden');
-    feedbackBlock.style.display = 'grid';
     scriptInput.setAttribute('disabled', 'disabled');
     titleInput.setAttribute('disabled', 'disabled');
     runBtn.setAttribute('disabled', 'disabled');
     regenBtn.removeAttribute('disabled');
-  } else if (mode === 'running') {
-    resultsPanel.classList.add('hidden');
+    return;
+  }
+
+  if (mode === 'running') {
     feedbackBlock.classList.add('hidden');
-    feedbackBlock.style.display = 'none';
     scriptInput.setAttribute('disabled', 'disabled');
     titleInput.setAttribute('disabled', 'disabled');
     runBtn.setAttribute('disabled', 'disabled');
     regenBtn.setAttribute('disabled', 'disabled');
-  } else {
-    resultsPanel.classList.add('hidden');
-    feedbackBlock.classList.add('hidden');
-    feedbackBlock.style.display = 'none';
-    regenInput.value = '';
-    scriptInput.removeAttribute('disabled');
-    titleInput.removeAttribute('disabled');
-    runBtn.removeAttribute('disabled');
-    regenBtn.setAttribute('disabled', 'disabled');
+    return;
   }
+
+  feedbackBlock.classList.add('hidden');
+  regenInput.value = '';
+  scriptInput.removeAttribute('disabled');
+  titleInput.removeAttribute('disabled');
+  runBtn.removeAttribute('disabled');
+  regenBtn.setAttribute('disabled', 'disabled');
 }
 
 function setSessionId(sessionId) {
@@ -94,17 +265,488 @@ function setSessionId(sessionId) {
   }
 }
 
+function ensureModelOption(value) {
+  if (!value) {
+    return DEFAULT_CONFIG.model;
+  }
+  if (Array.from(cfgModel.options).some((option) => option.value === value)) {
+    return value;
+  }
+
+  const option = document.createElement('option');
+  option.value = value;
+  option.textContent = `Custom model (${value})`;
+  cfgModel.appendChild(option);
+  return value;
+}
+
+function updateModelNote() {
+  const modelKey = cfgModel.value || DEFAULT_CONFIG.model;
+  const modelInfo = MODEL_CATALOG[modelKey];
+  cfgModelNote.textContent = modelInfo ? modelInfo.note : `Custom model | ${modelKey}`;
+}
+
+function applyConfig(config = {}) {
+  const merged = {
+    ...DEFAULT_CONFIG,
+    ...(config || {}),
+  };
+
+  cfgModel.value = ensureModelOption(merged.model || DEFAULT_CONFIG.model);
+  cfgIterations.value = String(Math.max(1, parseInt(merged.max_iterations || DEFAULT_CONFIG.max_iterations, 10)));
+  cfgTemperature.value = Number(merged.temperature ?? DEFAULT_CONFIG.temperature).toFixed(2);
+  cfgTemperatureValue.textContent = Number(cfgTemperature.value).toFixed(2);
+  updateModelNote();
+}
+
+function buildLineLookup(scriptInputPayload) {
+  const lookup = new Map();
+  const lines = scriptInputPayload?.lines || [];
+  lines.forEach((line) => {
+    lookup.set(line.line_id, line);
+  });
+  return lookup;
+}
+
+function getEvidenceItems(lineIds = []) {
+  return (lineIds || [])
+    .map((lineId) => {
+      const entry = currentLineLookup.get(lineId);
+      if (!entry) {
+        return {
+          lineId,
+          text: 'Referenced line not found in the normalized input.',
+        };
+      }
+      return {
+        lineId,
+        text: entry.text,
+      };
+    });
+}
+
+function renderEvidenceList(lineIds = []) {
+  const evidenceItems = getEvidenceItems(lineIds);
+  if (!evidenceItems.length) {
+    return '<p class="session-snippet">No cited lines.</p>';
+  }
+
+  return `
+    <div class="evidence-list">
+      ${evidenceItems.map((item) => `
+        <div class="evidence-row">
+          <button class="evidence-chip" type="button" data-line-ids="${escapeHtml(item.lineId)}">${escapeHtml(item.lineId)}</button>
+          <div class="evidence-text">${escapeHtml(item.text)}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function applySelectedLines() {
+  const activeIds = new Set(selectedLineIds);
+  scriptLinesEl.querySelectorAll('.script-line').forEach((row) => {
+    row.classList.toggle('active', activeIds.has(row.dataset.lineId));
+  });
+}
+
+function highlightEvidence(lineIds = [], switchToScript = false) {
+  selectedLineIds = lineIds.filter(Boolean);
+  applySelectedLines();
+  if (switchToScript && selectedLineIds.length) {
+    activateTab('script');
+    const firstLine = scriptLinesEl.querySelector(`[data-line-id="${selectedLineIds[0]}"]`);
+    if (firstLine) {
+      firstLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+}
+
+function clearEvidenceSelection() {
+  selectedLineIds = [];
+  applySelectedLines();
+}
+
+function setReportHeader(title, scriptInputPayload = null) {
+  reportTitleEl.textContent = title;
+
+  if (!scriptInputPayload) {
+    reportContextEl.textContent = 'Run an analysis to populate the report, token usage, and evidence view.';
+    reportMetaEl.innerHTML = '';
+    return;
+  }
+
+  reportContextEl.textContent = 'Evidence chips in the report map directly back to these normalized lines.';
+  reportMetaEl.innerHTML = [
+    buildHeaderMetric('format', 'Format', formatScriptFormat(scriptInputPayload.script_format)),
+    buildHeaderMetric('lines', 'Lines', `${formatNumber(scriptInputPayload.lines?.length || 0)} normalized`),
+    buildHeaderMetric('characters', 'Characters', `${formatNumber(scriptInputPayload.detected_characters?.length || 0)} detected`),
+  ].join('');
+}
+
+function resetReport() {
+  currentPayload = null;
+  currentLineLookup = new Map();
+  selectedLineIds = [];
+  overviewEl.innerHTML = '';
+  beatsEl.innerHTML = '';
+  emotionsEl.innerHTML = '';
+  engagementEl.innerHTML = '';
+  improvementsEl.innerHTML = '';
+  scriptLinesEl.innerHTML = '';
+  rawJsonEl.textContent = '';
+  emptyOverviewEl.classList.remove('hidden');
+  setReportHeader('No report loaded');
+  setStats();
+}
+
+function renderScriptLines(scriptInputPayload) {
+  const lines = scriptInputPayload?.lines || [];
+  if (!lines.length) {
+    scriptLinesEl.innerHTML = '<div class="empty-state"><h3>No script lines</h3><p>Normalized lines appear here after a run or when you load a saved session.</p></div>';
+    return;
+  }
+
+  scriptLinesEl.innerHTML = lines.map((line) => `
+    <div class="script-line" data-line-id="${escapeHtml(line.line_id)}">
+      <div class="line-id">${escapeHtml(line.line_id)}</div>
+      <div class="line-text">${escapeHtml(line.text)}</div>
+    </div>
+  `).join('');
+  applySelectedLines();
+}
+
+function renderOverview(payload) {
+  const report = payload.report || {};
+  const engagement = payload.engagement_analysis || {};
+  const validation = payload.validation;
+  const tokenUsage = payload.token_usage || {};
+  const topPriorities = payload.improvement_plan?.top_3_priorities || [];
+  const validationLabel = validation
+    ? (validation.valid ? 'Passed' : 'Failed')
+    : 'Not run';
+  const validationNote = validation
+    ? `${validation.errors?.length || 0} errors, ${validation.warnings?.length || 0} warnings`
+    : 'Validation did not run for this payload.';
+  const validatorPrompt = validation && !validation.valid
+    ? 'Validator flagged issues. Use Regenerate if you want another pass with the verdict in view.'
+    : 'Validator cleared the report or did not return blocking issues.';
+
+  emptyOverviewEl.classList.add('hidden');
+  overviewEl.innerHTML = `
+    <article class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-kicker">Summary</div>
+          <h3>Scene readout</h3>
+        </div>
+        <div class="soft-pill">${escapeHtml(report.beat_extraction?.probable_cliffhanger_beat_id || payload.beat_extraction?.probable_cliffhanger_beat_id || 'No cliffhanger id')}</div>
+      </div>
+      <ul>
+        ${(report.summary_3_4_lines || []).map((line) => `<li>${escapeHtml(line)}</li>`).join('')}
+      </ul>
+      <div class="meta-grid">
+        <div class="meta-chip">
+          <strong>Strongest element</strong>
+          <span>${escapeHtml(engagement.strongest_element || 'Not available')}</span>
+        </div>
+        <div class="meta-chip">
+          <strong>Weakest element</strong>
+          <span>${escapeHtml(engagement.weakest_element || 'Not available')}</span>
+        </div>
+        <div class="meta-chip">
+          <strong>Validation</strong>
+          <span>${escapeHtml(validationLabel)}. ${escapeHtml(validationNote)} ${escapeHtml(validatorPrompt)}</span>
+        </div>
+      </div>
+    </article>
+    <article class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-kicker">Priorities</div>
+          <h3>Highest-impact revisions</h3>
+        </div>
+      </div>
+      ${topPriorities.length ? `
+        <ol>
+          ${topPriorities.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+        </ol>
+      ` : '<p class="session-snippet">No improvement priorities were returned.</p>'}
+    </article>
+    <article class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-kicker">Tokens</div>
+          <h3>Usage by stage</h3>
+        </div>
+      </div>
+      <div class="meta-grid">
+        <div class="meta-chip">
+          <strong>Total</strong>
+          <span>${formatNumber(tokenUsage.total_tokens)} tokens</span>
+        </div>
+        <div class="meta-chip">
+          <strong>Input</strong>
+          <span>${formatNumber(tokenUsage.input_tokens)} tokens</span>
+        </div>
+        <div class="meta-chip">
+          <strong>Output</strong>
+          <span>${formatNumber(tokenUsage.output_tokens)} tokens</span>
+        </div>
+        <div class="meta-chip">
+          <strong>Reasoning</strong>
+          <span>${formatNumber(tokenUsage.reasoning_tokens)} tokens</span>
+        </div>
+      </div>
+      <div class="token-stage-grid">
+        ${(tokenUsage.stages || []).map((stage) => `
+          <div class="token-stage">
+            <strong>${escapeHtml(stage.label)}</strong>
+            <span>${formatNumber(stage.total_tokens)} total tokens across ${formatNumber(stage.calls)} call(s)</span>
+          </div>
+        `).join('')}
+      </div>
+    </article>
+    <article class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-kicker">Validation notes</div>
+          <h3>Errors and warnings</h3>
+        </div>
+      </div>
+      ${validation ? `
+        <div class="meta-grid">
+          <div class="meta-chip">
+            <strong>Errors</strong>
+            <span>${escapeHtml((validation.errors || []).join(' | ') || 'None')}</span>
+          </div>
+          <div class="meta-chip">
+            <strong>Warnings</strong>
+            <span>${escapeHtml((validation.warnings || []).join(' | ') || 'None')}</span>
+          </div>
+        </div>
+      ` : '<p class="session-snippet">Validation did not run for this payload.</p>'}
+    </article>
+  `;
+}
+
+function renderBeats(beats = []) {
+  if (!beats.length) {
+    beatsEl.innerHTML = '<div class="empty-state"><h3>No beats</h3><p>The beat extractor did not return any beats.</p></div>';
+    return;
+  }
+
+  beatsEl.innerHTML = beats.map((beat) => `
+    <article class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-kicker">${escapeHtml(beat.beat_id)}</div>
+          <h3>${escapeHtml(beat.label)}</h3>
+        </div>
+        <div class="soft-pill">Tension ${escapeHtml(beat.tension_level)}</div>
+      </div>
+      <p>${escapeHtml(beat.short_description)}</p>
+      <div class="pill-row">
+        ${(beat.involved_characters || []).map((character) => `<span class="soft-pill">${escapeHtml(character)}</span>`).join('')}
+      </div>
+      ${renderEvidenceList(beat.evidence_line_ids)}
+    </article>
+  `).join('');
+}
+
+function renderEmotions(analysis = {}) {
+  const dominantSceneEmotions = analysis.dominant_scene_emotions || [];
+  const beatwiseArc = analysis.beatwise_arc || [];
+  const cards = [];
+
+  cards.push(`
+    <article class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-kicker">Overall tone</div>
+          <h3>Scene emotions</h3>
+        </div>
+      </div>
+      <p>${escapeHtml(analysis.emotional_arc_summary || 'No emotional summary returned.')}</p>
+      <div class="pill-row">
+        ${(analysis.overall_tone || []).map((tone) => `<span class="soft-pill">${escapeHtml(tone)}</span>`).join('')}
+      </div>
+      ${dominantSceneEmotions.map((emotion) => `
+        <div class="meta-chip">
+          <strong>${escapeHtml(emotion.emotion)} (${escapeHtml(emotion.strength)}/5)</strong>
+          <span>${escapeHtml(emotion.justification)}</span>
+          ${renderEvidenceList(emotion.evidence_line_ids)}
+        </div>
+      `).join('')}
+    </article>
+  `);
+
+  beatwiseArc.forEach((shift) => {
+    cards.push(`
+      <article class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-kicker">${escapeHtml(shift.beat_id)}</div>
+            <h3>Intensity ${escapeHtml(shift.emotional_intensity)}</h3>
+          </div>
+        </div>
+        <p>${escapeHtml(shift.shift_from_previous)}</p>
+        ${shift.dominant_emotions.map((emotion) => `
+          <div class="meta-chip">
+            <strong>${escapeHtml(emotion.emotion)} (${escapeHtml(emotion.strength)}/5)</strong>
+            <span>${escapeHtml(emotion.justification)}</span>
+            ${renderEvidenceList(emotion.evidence_line_ids)}
+          </div>
+        `).join('')}
+      </article>
+    `);
+  });
+
+  emotionsEl.innerHTML = cards.join('');
+}
+
+function renderEngagement(analysis = {}) {
+  const factors = analysis.factors || [];
+  if (!factors.length) {
+    engagementEl.innerHTML = '<div class="empty-state"><h3>No engagement scores</h3><p>The engagement stage did not return factor scores.</p></div>';
+    return;
+  }
+
+  engagementEl.innerHTML = `
+    <article class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-kicker">Overall score</div>
+          <h3>${escapeHtml(analysis.overall_score)} / 100</h3>
+        </div>
+        <div class="soft-pill">${escapeHtml(analysis.score_band || 'Unknown band')}</div>
+      </div>
+      <p>${escapeHtml(analysis.cliffhanger_reason || 'No cliffhanger rationale returned.')}</p>
+      <div class="meta-grid">
+        <div class="meta-chip">
+          <strong>Strongest</strong>
+          <span>${escapeHtml(analysis.strongest_element || 'Not available')}</span>
+        </div>
+        <div class="meta-chip">
+          <strong>Weakest</strong>
+          <span>${escapeHtml(analysis.weakest_element || 'Not available')}</span>
+        </div>
+        <div class="meta-chip">
+          <strong>Cliffhanger line</strong>
+          <span>${escapeHtml(analysis.cliffhanger_moment_text || 'Not available')}</span>
+        </div>
+      </div>
+    </article>
+    ${factors.map((factor) => `
+      <article class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-kicker">${escapeHtml(factor.factor)}</div>
+            <h3>${escapeHtml(factor.score)} / 10</h3>
+          </div>
+          <div class="soft-pill">Weighted ${escapeHtml(factor.weighted_score)}</div>
+        </div>
+        <p>${escapeHtml(factor.reasoning)}</p>
+        ${renderEvidenceList(factor.evidence_line_ids)}
+      </article>
+    `).join('')}
+  `;
+}
+
+function renderImprovements(plan = {}) {
+  const suggestions = plan.suggestions || [];
+  if (!suggestions.length) {
+    improvementsEl.innerHTML = '<div class="empty-state"><h3>No improvement plan</h3><p>The critique stage did not return rewrite suggestions.</p></div>';
+    return;
+  }
+
+  improvementsEl.innerHTML = `
+    ${plan.optional_stronger_opening ? `
+      <article class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-kicker">Optional opening</div>
+            <h3>Alternative start</h3>
+          </div>
+        </div>
+        <p>${escapeHtml(plan.optional_stronger_opening)}</p>
+      </article>
+    ` : ''}
+    ${suggestions.map((item) => `
+      <article class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-kicker">${escapeHtml(item.target_area)}</div>
+            <h3>${escapeHtml(item.issue)}</h3>
+          </div>
+        </div>
+        <p>${escapeHtml(item.why_it_hurts_engagement)}</p>
+        <div class="meta-chip">
+          <strong>Concrete fix</strong>
+          <span>${escapeHtml(item.concrete_fix)}</span>
+        </div>
+        ${item.example_rewrite ? `
+          <div class="meta-chip">
+            <strong>Example rewrite</strong>
+            <span>${escapeHtml(item.example_rewrite)}</span>
+          </div>
+        ` : ''}
+        ${renderEvidenceList(item.target_line_ids)}
+      </article>
+    `).join('')}
+  `;
+}
+
+function updateReportStats(payload) {
+  const validation = payload.validation;
+  const validationLabel = validation
+    ? (validation.valid ? 'Passed' : 'Failed')
+    : 'Not run';
+  const validationNote = validation
+    ? `${validation.errors?.length || 0} errors, ${validation.warnings?.length || 0} warnings`
+    : 'No validator verdict available.';
+  const tokenUsage = payload.token_usage || {};
+  const title = titleInput.value || currentPayload?.script_input?.title || 'Untitled';
+
+  setStats({
+    tokens: formatNumber(tokenUsage.total_tokens || payload.tokens_used || 0),
+    tokensNote: `${formatNumber(tokenUsage.input_tokens || 0)} input / ${formatNumber(tokenUsage.output_tokens || 0)} output`,
+    iterations: formatNumber(payload.iterations || 0),
+    iterationsNote: 'Completed analysis passes',
+    validation: validationLabel,
+    validationNote,
+    session: title || 'Draft',
+    sessionNote: currentSessionId ? `Session ${currentSessionId.slice(0, 8)}` : 'Unsaved working copy',
+  });
+}
+
+function renderResult(payload) {
+  currentPayload = payload;
+  currentLineLookup = buildLineLookup(payload.script_input);
+  clearEvidenceSelection();
+  setMode('complete');
+  setReportHeader(payload.script_input?.title || titleInput.value || 'Current report', payload.script_input || null);
+  updateReportStats(payload);
+  renderOverview(payload);
+  renderBeats(payload.beat_extraction?.beats || []);
+  renderEmotions(payload.emotion_analysis || {});
+  renderEngagement(payload.engagement_analysis || {});
+  renderImprovements(payload.improvement_plan || {});
+  renderScriptLines(payload.script_input || {});
+  rawJsonEl.textContent = JSON.stringify(payload, null, 2);
+}
+
 async function createSession() {
   const title = titleInput.value || null;
   const response = await fetch('/api/sessions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title })
+    body: JSON.stringify({ title }),
   });
   const data = await response.json();
   setSessionId(data.session_id);
   await refreshSessions();
-  setStatus('Ready', 'Session created.');
+  setStatus('Ready', 'Session created.', 'idle');
 }
 
 async function saveInput() {
@@ -116,19 +758,19 @@ async function saveInput() {
   await fetch(`/api/sessions/${currentSessionId}/input`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, raw_text })
+    body: JSON.stringify({ title, raw_text }),
   });
 }
 
 async function saveRegeneration() {
   const regeneration_prompt = regenInput.value || '';
-  if (!regeneration_prompt) {
+  if (!regeneration_prompt || !currentSessionId) {
     return;
   }
   await fetch(`/api/sessions/${currentSessionId}/regeneration`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ regeneration_prompt })
+    body: JSON.stringify({ regeneration_prompt }),
   });
 }
 
@@ -140,181 +782,144 @@ async function saveConfig() {
     model: cfgModel.value || null,
     temperature: parseFloat(cfgTemperature.value),
     max_iterations: parseInt(cfgIterations.value, 10),
-    reasoning_iterations: parseInt(cfgReasoningIterations.value, 10),
-    steps_pipeline: cfgSteps.checked,
-    reasoning_pipeline: cfgReasoning.checked,
   };
   await fetch(`/api/sessions/${currentSessionId}/config`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
   });
 }
 
-function showSkeleton() {
-  overviewSkeleton.style.display = 'grid';
-  resultsPanel.classList.add('hidden');
-  overviewEl.innerHTML = '';
-  beatsEl.innerHTML = '';
-  emotionsEl.innerHTML = '';
-  engagementEl.innerHTML = '';
-  improvementsEl.innerHTML = '';
-  rawJsonEl.textContent = '';
-}
-
-function hideSkeleton() {
-  overviewSkeleton.style.display = 'none';
-  resultsPanel.classList.remove('hidden');
-}
-
-function renderOverview(report) {
-  if (!report) return;
-  const summary = report.summary_3_4_lines || [];
-  overviewEl.innerHTML = `
-    <div class="card">
-      <h4>Summary</h4>
-      <ul>${summary.map(line => `<li>${line}</li>`).join('')}</ul>
-    </div>
-    <div class="card">
-      <h4>Strongest / Weakest</h4>
-      <p><strong>Strongest:</strong> ${report.engagement_analysis?.strongest_element || '—'}</p>
-      <p><strong>Weakest:</strong> ${report.engagement_analysis?.weakest_element || '—'}</p>
-    </div>
-  `;
-}
-
-function renderBeats(beats) {
-  if (!beats) return;
-  beatsEl.innerHTML = beats.map((beat) => `
-    <div class="card">
-      <h4>${beat.label} (${beat.beat_id})</h4>
-      <p>${beat.short_description}</p>
-      <p><strong>Evidence:</strong> ${beat.evidence_line_ids?.join(', ') || '—'}</p>
-    </div>
-  `).join('');
-}
-
-function renderEmotions(emotions) {
-  if (!emotions) return;
-  emotionsEl.innerHTML = emotions.map((shift) => `
-    <div class="card">
-      <h4>${shift.beat_id}</h4>
-      <p>${shift.shift_from_previous}</p>
-      <p><strong>Intensity:</strong> ${shift.emotional_intensity}</p>
-    </div>
-  `).join('');
-}
-
-function renderEngagement(analysis) {
-  if (!analysis) return;
-  engagementEl.innerHTML = analysis.factors.map((factor) => `
-    <div class="card">
-      <h4>${factor.factor}</h4>
-      <p><strong>Score:</strong> ${factor.score} (weighted ${factor.weighted_score})</p>
-      <p>${factor.reasoning}</p>
-    </div>
-  `).join('');
-}
-
-function renderImprovements(plan) {
-  if (!plan) return;
-  improvementsEl.innerHTML = plan.suggestions.map((item) => `
-    <div class="card">
-      <h4>${item.target_area}</h4>
-      <p>${item.issue}</p>
-      <p><strong>Fix:</strong> ${item.concrete_fix}</p>
-    </div>
-  `).join('');
-}
-
-function renderResult(payload) {
-  setMode('complete');
-  hideSkeleton();
-  renderOverview(payload.report);
-  renderBeats(payload.beat_extraction?.beats || []);
-  renderEmotions(payload.emotion_analysis?.beatwise_arc || []);
-  renderEngagement(payload.engagement_analysis || {});
-  renderImprovements(payload.improvement_plan || {});
-  rawJsonEl.textContent = JSON.stringify(payload, null, 2);
+function closeCurrentSource() {
+  if (currentSource) {
+    currentSource.close();
+    currentSource = null;
+  }
 }
 
 function startStream(mode) {
-  if (currentSource) {
-    currentSource.close();
-  }
+  closeCurrentSource();
   clearChat();
-  showSkeleton();
+  resetReport();
   setMode('running');
-  setStatus('Running', 'Streaming updates...');
-  addChatMessage(`Mode: ${mode}. Analysis started.`, 'system');
+  setStatus('Running', 'Streaming backend progress.', 'running');
+  addChatMessage(`Mode: ${mode}.`, 'system');
 
   currentSource = new EventSource(`/api/sessions/${currentSessionId}/stream?mode=${mode}`);
 
   currentSource.addEventListener('progress', (event) => {
     const data = JSON.parse(event.data);
-    addChatMessage(`${data.stage} - ${data.status}`, 'system');
+    const detailBits = [];
+    if (data.iteration) {
+      detailBits.push(`iteration ${data.iteration}`);
+    }
+    if (data.tokens) {
+      detailBits.push(`${formatNumber(data.tokens)} tokens`);
+    }
+    addChatMessage(`${data.stage} - ${data.status}${detailBits.length ? ` (${detailBits.join(', ')})` : ''}`, 'system');
   });
 
   currentSource.addEventListener('result', (event) => {
     const payload = JSON.parse(event.data);
     renderResult(payload);
-    setStatus('Complete', `Iterations: ${payload.iterations}`);
-    addChatMessage('Analysis complete. Review the breakdown and regenerate if needed.', 'system');
+    if (payload.validation && payload.validation.valid === false) {
+      setStatus('Review', `Validator flagged issues after ${formatNumber(payload.iterations)} iteration(s).`, 'error');
+      addChatMessage('Analysis complete, but the validator found issues. Use Regenerate if you want another pass.', 'system');
+    } else {
+      setStatus('Complete', `Completed ${formatNumber(payload.iterations)} iteration(s).`, 'complete');
+      addChatMessage('Analysis complete.', 'system');
+    }
     refreshSessions();
   });
 
   currentSource.addEventListener('error', (event) => {
-    setStatus('Error', 'Analysis failed.');
-    addChatMessage('Analysis failed. Check logs for details.', 'system');
+    if (!event.data) {
+      return;
+    }
+    let payload = { message: 'Analysis failed.' };
+    try {
+      payload = JSON.parse(event.data);
+    } catch (error) {
+      payload = { message: 'Analysis failed.' };
+    }
+    setStatus('Error', payload.message || 'Analysis failed.', 'error');
+    addChatMessage(payload.message || 'Analysis failed.', 'system');
     setMode('draft');
-    currentSource.close();
+    closeCurrentSource();
   });
 
   currentSource.addEventListener('done', () => {
-    currentSource.close();
+    closeCurrentSource();
   });
+
+  currentSource.onerror = () => {
+    if (currentSource && currentSource.readyState === EventSource.CLOSED) {
+      closeCurrentSource();
+    }
+  };
 }
 
 function renderSessionList(sessions) {
   sessionListEl.innerHTML = '';
+
   const draft = document.createElement('div');
   draft.className = `session-item ${currentSessionId ? '' : 'active'}`;
-  draft.innerHTML = '<div class="session-title">Draft Session</div><div class="session-snippet">Not saved yet</div>';
+  draft.innerHTML = `
+    <div class="session-row">
+      <div class="session-main">
+        <div class="session-title">Draft</div>
+        <div class="session-snippet">Start a new analysis from scratch.</div>
+        <div class="session-meta">
+          <span class="session-status">draft</span>
+          <span class="session-time">Not saved yet</span>
+        </div>
+      </div>
+    </div>
+  `;
   draft.addEventListener('click', () => {
     setSessionId(null);
     titleInput.value = '';
     scriptInput.value = '';
     regenInput.value = '';
+    applyConfig();
+    resetReport();
     setMode('draft');
-    showSkeleton();
-    setStatus('Draft', 'New draft session ready.');
+    setStatus('Draft', 'Working on a new unsaved script.', 'idle');
+    setStats();
   });
   sessionListEl.appendChild(draft);
 
   sessions.forEach((session) => {
     const item = document.createElement('div');
     item.className = `session-item ${session.session_id === currentSessionId ? 'active' : ''}`;
-    const title = session.title || session.snippet || 'Untitled Session';
     item.innerHTML = `
       <div class="session-row">
-        <div>
-          <div class="session-title">${title}</div>
-          <div class="session-snippet">${session.snippet || 'No script yet'}</div>
+        <div class="session-main">
+          <div class="session-title">${escapeHtml(session.title || session.snippet || 'Untitled Session')}</div>
+          <div class="session-snippet">${escapeHtml(session.snippet || 'No script yet')}</div>
+          <div class="session-meta">
+            <span class="session-status">${escapeHtml(session.status || 'idle')}</span>
+            <span class="session-time">${escapeHtml(formatDateTime(session.updated_at, true))}</span>
+          </div>
         </div>
-        <button class="session-delete" type="button">Delete</button>
+        <button class="session-delete" type="button" aria-label="Delete session">Delete</button>
       </div>
     `;
     item.addEventListener('click', async () => {
       await loadSession(session.session_id);
     });
-    const deleteBtn = item.querySelector('.session-delete');
-    deleteBtn.addEventListener('click', async (event) => {
+    item.querySelector('.session-delete').addEventListener('click', async (event) => {
       event.stopPropagation();
       await fetch(`/api/sessions/${session.session_id}`, { method: 'DELETE' });
       if (session.session_id === currentSessionId) {
         setSessionId(null);
-        showSkeleton();
-        setStatus('Draft', 'Session deleted.');
+        titleInput.value = '';
+        scriptInput.value = '';
+        regenInput.value = '';
+        applyConfig();
+        resetReport();
+        setMode('draft');
+        setStatus('Draft', 'Session deleted.', 'idle');
       }
       refreshSessions();
     });
@@ -328,6 +933,25 @@ async function refreshSessions() {
   renderSessionList(data.sessions || []);
 }
 
+function buildPayloadFromSession(data) {
+  if (!data.last_report_json) {
+    return null;
+  }
+
+  return {
+    script_input: data.script_input || null,
+    iterations: data.iterations || 0,
+    tokens_used: data.tokens_used || 0,
+    token_usage: data.token_usage || null,
+    report: JSON.parse(data.last_report_json),
+    validation: data.last_validation_json ? JSON.parse(data.last_validation_json) : null,
+    engagement_analysis: data.last_engagement_json ? JSON.parse(data.last_engagement_json) : null,
+    beat_extraction: data.last_beat_json ? JSON.parse(data.last_beat_json) : null,
+    emotion_analysis: data.last_emotion_json ? JSON.parse(data.last_emotion_json) : null,
+    improvement_plan: data.last_improvement_json ? JSON.parse(data.last_improvement_json) : null,
+  };
+}
+
 async function loadSession(sessionId) {
   const response = await fetch(`/api/sessions/${sessionId}`);
   const data = await response.json();
@@ -335,23 +959,60 @@ async function loadSession(sessionId) {
   titleInput.value = data.title || '';
   scriptInput.value = data.raw_text || '';
   regenInput.value = data.regeneration_prompt || '';
-  if (data.last_report_json) {
-    const reportPayload = {
-      report: JSON.parse(data.last_report_json),
-      validation: data.last_validation_json ? JSON.parse(data.last_validation_json) : null,
-      engagement_analysis: data.last_engagement_json ? JSON.parse(data.last_engagement_json) : null,
-      beat_extraction: data.last_beat_json ? JSON.parse(data.last_beat_json) : null,
-      emotion_analysis: data.last_emotion_json ? JSON.parse(data.last_emotion_json) : null,
-      improvement_plan: data.last_improvement_json ? JSON.parse(data.last_improvement_json) : null,
-    };
-    renderResult(reportPayload);
+  applyConfig(data.config || {});
+
+  const payload = buildPayloadFromSession(data);
+  if (payload) {
+    renderResult(payload);
+    setMode('complete');
   } else {
+    resetReport();
+    renderScriptLines(data.script_input || {});
     setMode('draft');
-    showSkeleton();
   }
-  setStatus(data.status || 'Idle', `Last updated ${data.updated_at || 'just now'}`);
+
+  const sessionState = payload?.validation && payload.validation.valid === false
+    ? 'error'
+    : (data.status === 'error' ? 'error' : (payload ? 'complete' : 'idle'));
+  const sessionLabel = payload?.validation && payload.validation.valid === false
+    ? 'Review'
+    : capitalize(data.status);
+
+  setStatus(
+    sessionLabel,
+    `Updated ${formatDateTime(data.updated_at)}`,
+    sessionState
+  );
+  setStats({
+    tokens: formatNumber(data.token_usage?.total_tokens || data.tokens_used || 0),
+    tokensNote: data.token_usage ? `${formatNumber(data.token_usage.input_tokens || 0)} input / ${formatNumber(data.token_usage.output_tokens || 0)} output` : 'No run yet',
+    iterations: formatNumber(data.iterations || 0),
+    iterationsNote: payload ? 'Saved result' : 'No completed run yet',
+    validation: payload?.validation ? (payload.validation.valid ? 'Passed' : 'Failed') : 'Not run',
+    validationNote: payload?.validation ? `${payload.validation.errors?.length || 0} errors, ${payload.validation.warnings?.length || 0} warnings` : (payload ? 'No validator verdict available.' : 'No report yet'),
+    session: data.title || 'Untitled',
+    sessionNote: formatDateTime(data.updated_at, true),
+  });
   refreshSessions();
 }
+
+document.addEventListener('click', (event) => {
+  const evidenceButton = event.target.closest('[data-line-ids]');
+  if (!evidenceButton) {
+    return;
+  }
+  const ids = (evidenceButton.dataset.lineIds || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (ids.length) {
+    highlightEvidence(ids, true);
+  }
+});
+
+clearEvidenceBtn.addEventListener('click', () => {
+  clearEvidenceSelection();
+});
 
 runBtn.addEventListener('click', async () => {
   await saveInput();
@@ -373,5 +1034,28 @@ cfgTemperature.addEventListener('input', () => {
   cfgTemperatureValue.textContent = Number(cfgTemperature.value).toFixed(2);
 });
 
-refreshSessions();
-setMode('draft');
+cfgModel.addEventListener('change', () => {
+  updateModelNote();
+});
+
+async function initialize() {
+  resetReport();
+  applyConfig();
+  setMode('draft');
+  await refreshSessions();
+
+  const savedSessionId = localStorage.getItem('scriptpulse_session');
+  if (savedSessionId) {
+    try {
+      await loadSession(savedSessionId);
+    } catch (error) {
+      setSessionId(null);
+      applyConfig();
+      setStatus('Idle', 'Waiting for script input.', 'idle');
+    }
+  } else {
+    setStatus('Idle', 'Waiting for script input.', 'idle');
+  }
+}
+
+initialize();

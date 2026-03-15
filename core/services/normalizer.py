@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import List, Optional
 
-from ..schemas.input_schema import ScriptInput
+from ..schemas.input_schema import ScriptInput, ScriptLine
 
 _DIALOGUE_RE = re.compile(r"^([A-Z][A-Za-z0-9 _\-\.()]{0,60}):\s*(.+)$")
 _SCENE_RE = re.compile(r"^(INT\.|EXT\.|INT/EXT\.|EST\.|SCENE)(\s|$)", re.IGNORECASE)
@@ -68,12 +68,17 @@ def normalize_script_input(raw_text: str, title: Optional[str] = None) -> Script
 
     lines = _normalize_lines(raw_text)
     normalized_text = "\n".join(lines)
-    line_map = [f"L{idx}: {line}" for idx, line in enumerate(lines, start=1)]
+    structured_lines = [
+        ScriptLine(line_id=f"L{idx}", line_number=idx, text=line)
+        for idx, line in enumerate(lines, start=1)
+    ]
+    line_map = [f"{line.line_id}: {line.text}" for line in structured_lines]
 
     return ScriptInput(
         title=title,
         raw_text=raw_text,
         normalized_text=normalized_text,
+        lines=structured_lines,
         line_map=line_map,
         detected_characters=_extract_characters(lines),
         script_format=_detect_format(lines),

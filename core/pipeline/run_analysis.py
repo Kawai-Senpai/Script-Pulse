@@ -31,7 +31,7 @@ log = logger("llm_log", **log_config)
 
 @dataclass
 class AnalysisConfig:
-    model: str = "gpt-5.4"
+    model: str = "gpt-5.4::medium"
     temperature: float = 0.2
     max_iterations: int = 1
     reasoning_iterations: int = 2
@@ -53,7 +53,7 @@ class AnalysisResult:
     engagement_analysis: EngagementAnalysis
     improvement_plan: ImprovementPlan
     report: ScriptAnalysisReport
-    validation: ValidationReport
+    validation: Optional[ValidationReport]
     iterations: int
     tokens_used: int
     step_details: Dict[str, Any]
