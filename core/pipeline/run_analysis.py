@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from decimal import Decimal, InvalidOperation
-from typing import Any, Callable, Dict, List, Optional
+from decimal import Decimal
+from typing import Any, Callable, Dict, List, Optional, get_args
 
 from ultraprint.logging import logger
 
@@ -19,7 +19,7 @@ from ..prompts import RUBRIC_BUNDLE
 from ..schemas.beat_schema import BeatExtraction
 from ..schemas.critique_schema import ImprovementPlan
 from ..schemas.emotion_schema import EmotionAnalysis
-from ..schemas.engagement_schema import EngagementAnalysis
+from ..schemas.engagement_schema import EngagementAnalysis, EngagementFactor
 from ..schemas.final_schema import ScriptAnalysisReport
 from ..schemas.validation_schema import ValidationReport
 from ..services.llm_client import send_ultragpt_chat
@@ -30,15 +30,50 @@ from ..utils.schema_utils import build_summary_from_beats, model_to_dict, parse_
 log = logger("llm_log", **log_config)
 
 
-def _recompute_engagement_overall(analysis: EngagementAnalysis) -> EngagementAnalysis:
-    total = Decimal("0")
-    for factor in analysis.factors or []:
-        try:
-            total += Decimal(str(factor.weighted_score))
-        except (InvalidOperation, TypeError, ValueError):
-            continue
+def _load_engagement_factor_weights(rubric_bundle: Dict[str, Any]) -> Dict[str, Decimal]:
+    dimensions = rubric_bundle.get("dimensions") or []
+    weights: Dict[str, Decimal] = {}
 
-    # Keep the exact weighted total to avoid rounding drift from the model.
+    for dim in dimensions:
+        name = str((dim or {}).get("name") or "").strip()
+        if not name:
+            continue
+        weight_raw = (dim or {}).get("weight", 0)
+        weights[name] = Decimal(str(weight_raw))
+
+    expected = set(get_args(EngagementFactor))
+    actual = set(weights.keys())
+    if expected != actual:
+        missing = sorted(expected - actual)
+        extra = sorted(actual - expected)
+        raise ValueError(
+            "RUBRIC_BUNDLE dimensions must exactly match EngagementFactor set. "
+            f"missing={missing} extra={extra}"
+        )
+
+    total = sum(weights.values(), Decimal("0"))
+    if total != Decimal("1"):
+        raise ValueError(
+            "RUBRIC_BUNDLE weights must sum to 1.0 to keep overall_score on a 0-100 scale. "
+            f"sum={total}"
+        )
+
+    return weights
+
+
+def _apply_deterministic_engagement_math(
+    analysis: EngagementAnalysis,
+    weights: Dict[str, Decimal],
+) -> EngagementAnalysis:
+    total = Decimal("0")
+
+    for factor in analysis.factors or []:
+        weight = weights.get(str(factor.factor), Decimal("0"))
+        score = Decimal(str(factor.score or 0))
+        weighted = score * weight * Decimal("10")
+        factor.weighted_score = float(weighted)
+        total += weighted
+
     analysis.overall_score = float(total)
     return analysis
 
@@ -265,7 +300,8 @@ def run_analysis(
                 reserve_ratio=config.reserve_ratio,
             )
             engagement_analysis = parse_schema(EngagementAnalysis, engagement_content)
-            engagement_analysis = _recompute_engagement_overall(engagement_analysis)
+            weights = _load_engagement_factor_weights(RUBRIC_BUNDLE)
+            engagement_analysis = _apply_deterministic_engagement_math(engagement_analysis, weights)
         except Exception as exc:
             log.error("Engagement scoring failed: %s", exc)
             if progress_callback:
