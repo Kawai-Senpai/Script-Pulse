@@ -1,0 +1,26 @@
+sequenceDiagram
+    participant UI as Browser UI
+    participant API as FastAPI
+    participant DB as SQLite
+    participant PIPE as Analysis Pipeline
+    participant LLM as Model
+
+    UI->>API: POST session/input/config
+    API->>DB: save session state
+    UI->>API: GET stream endpoint
+    API->>DB: set status = running
+    API->>PIPE: start worker
+    PIPE->>PIPE: normalize script
+    PIPE->>LLM: beats
+    API-->>UI: progress
+    PIPE->>LLM: emotions
+    API-->>UI: progress
+    PIPE->>LLM: engagement
+    API-->>UI: progress
+    PIPE->>LLM: improvements
+    API-->>UI: progress
+    PIPE->>LLM: validation
+    API-->>UI: progress
+    PIPE->>DB: save result
+    API-->>UI: result
+    API-->>UI: done

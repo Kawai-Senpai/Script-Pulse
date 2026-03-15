@@ -1,0 +1,7 @@
+stateDiagram-v2
+   [*] --> Draft
+   Draft --> Running: Run Analysis
+   Running --> Complete: result + done
+   Running --> Error: error
+   Complete --> Running: Regenerate
+   Error --> Draft: fix input/config

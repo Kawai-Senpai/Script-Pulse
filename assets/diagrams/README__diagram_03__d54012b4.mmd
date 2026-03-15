@@ -1,0 +1,13 @@
+stateDiagram-v2
+    direction LR
+
+    [*] --> idle
+    idle --> running: stream start
+
+    running --> complete: valid
+    running --> review: invalid
+    running --> error: exception
+
+    review --> running: regenerate
+    complete --> running: regenerate
+    error --> running: rerun

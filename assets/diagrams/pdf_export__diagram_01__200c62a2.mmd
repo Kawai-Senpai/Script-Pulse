@@ -1,0 +1,6 @@
+flowchart TD
+	A[User clicks Export PDF] --> B[window.print()]
+	B --> C[@media print rules apply]
+	C --> D[Hide UI chrome\nShow all report sections]
+	D --> E[Browser print dialog]
+	E --> F[Save as PDF]

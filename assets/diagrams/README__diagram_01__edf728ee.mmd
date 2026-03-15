@@ -1,0 +1,16 @@
+flowchart TD
+    A[Browser UI] -->|HTTP + SSE| B[FastAPI app]
+    B --> C[Session APIs]
+    B --> D[Stream endpoint]
+    C --> E[SQLite session store]
+    D --> F[Worker thread]
+    F --> G[normalize_script_input]
+    F --> H[run_analysis pipeline]
+    H --> I[message_builder + prompts]
+    H --> J[UltraGPT client]
+    J --> K[OpenRouter model]
+    H --> L[Pydantic schemas]
+    H --> M[Validation + retry logic]
+    F --> E
+    E --> B
+    B --> A

@@ -1,0 +1,30 @@
+sequenceDiagram
+    participant U as User
+    participant W as Web UI
+    participant A as FastAPI
+    participant DB as SQLite
+    participant P as Pipeline
+    participant L as LLM
+
+    U->>W: Paste script and click Run Analysis
+    W->>A: POST /api/sessions
+    A->>DB: create session
+    W->>A: POST /api/sessions/{id}/input
+    W->>A: POST /api/sessions/{id}/config
+    W->>A: GET /api/sessions/{id}/stream?mode=analyze
+    A->>DB: mark status running
+    A->>P: start worker thread
+    P->>P: normalize input
+    P->>L: beat extraction
+    A-->>W: progress event
+    P->>L: emotion analysis
+    A-->>W: progress event
+    P->>L: engagement scoring
+    A-->>W: progress event
+    P->>L: improvement plan
+    A-->>W: progress event
+    P->>L: validation
+    A-->>W: progress event
+    P->>DB: save result or error
+    A-->>W: result event
+    A-->>W: done event

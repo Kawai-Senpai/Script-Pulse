@@ -1,0 +1,17 @@
+sequenceDiagram
+   participant UI as Browser UI
+   participant API as FastAPI
+   participant DB as SQLite
+   participant PIPE as Pipeline
+
+   UI->>API: POST /api/sessions
+   UI->>API: POST /api/sessions/{id}/input
+   UI->>API: POST /api/sessions/{id}/config
+   UI->>API: GET /api/sessions/{id}/stream?mode=analyze
+   API->>DB: status = running
+   API->>PIPE: start worker thread
+   PIPE-->>API: progress events
+   API-->>UI: event: progress
+   PIPE-->>API: result payload
+   API-->>UI: event: result
+   API-->>UI: event: done

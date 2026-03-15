@@ -1,0 +1,11 @@
+flowchart TD
+	A[Normalize script\nAssign line IDs] --> B[Stage 1: Beats]
+	B --> C[Stage 2: Emotions]
+	C --> D[Stage 3: Engagement]
+	D --> E[Stage 4: Improvements]
+	E --> F[Assemble final report]
+	F --> G[Validator pass]
+	G -->|valid| H[Save as complete]
+	G -->|invalid but retryable| I[Regeneration instructions]
+	I --> B
+	G -->|invalid and not retryable| J[Save as review]

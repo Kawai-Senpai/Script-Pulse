@@ -1,0 +1,18 @@
+flowchart TD
+    A[User enters script in web UI] --> B[Create or reuse session]
+    B --> C[Save raw script + config]
+    C --> D[Open SSE stream]
+    D --> E[Worker thread starts]
+    E --> F[Normalize script]
+    F --> G[Beat extraction]
+    G --> H[Emotion analysis]
+    H --> I[Engagement scoring]
+    I --> J[Improvement plan]
+    J --> K[Build final report]
+    K --> L[Validation]
+    L -->|valid| M[Save result as complete]
+    L -->|invalid| N[Save result as review]
+    L -->|retryable and iterations left| O[Use regeneration instructions]
+    O --> G
+    M --> P[Send result to UI]
+    N --> P

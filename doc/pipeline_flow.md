@@ -14,57 +14,17 @@ That is why the flow looks the way it does.
 
 ## One-screen view
 
-```mermaid
-flowchart TD
-    A[User enters script in web UI] --> B[Create or reuse session]
-    B --> C[Save raw script + config]
-    C --> D[Open SSE stream]
-    D --> E[Worker thread starts]
-    E --> F[Normalize script]
-    F --> G[Beat extraction]
-    G --> H[Emotion analysis]
-    H --> I[Engagement scoring]
-    I --> J[Improvement plan]
-    J --> K[Build final report]
-    K --> L[Validation]
-    L -->|valid| M[Save result as complete]
-    L -->|invalid| N[Save result as review]
-    L -->|retryable and iterations left| O[Use regeneration instructions]
-    O --> G
-    M --> P[Send result to UI]
-    N --> P
-```
+![Diagram 1](../assets/diagrams/pipeline_flow__diagram_01__26839093.png)
+
+Source: [pipeline_flow__diagram_01__26839093.mmd](../assets/diagrams/pipeline_flow__diagram_01__26839093.mmd)
+
 
 ## Runtime flow
 
-```mermaid
-sequenceDiagram
-    participant UI as Browser UI
-    participant API as FastAPI
-    participant DB as SQLite
-    participant PIPE as Analysis Pipeline
-    participant LLM as Model
+![Diagram 2](../assets/diagrams/pipeline_flow__diagram_02__3642d254.png)
 
-    UI->>API: POST session/input/config
-    API->>DB: save session state
-    UI->>API: GET stream endpoint
-    API->>DB: set status = running
-    API->>PIPE: start worker
-    PIPE->>PIPE: normalize script
-    PIPE->>LLM: beats
-    API-->>UI: progress
-    PIPE->>LLM: emotions
-    API-->>UI: progress
-    PIPE->>LLM: engagement
-    API-->>UI: progress
-    PIPE->>LLM: improvements
-    API-->>UI: progress
-    PIPE->>LLM: validation
-    API-->>UI: progress
-    PIPE->>DB: save result
-    API-->>UI: result
-    API-->>UI: done
-```
+Source: [pipeline_flow__diagram_02__3642d254.mmd](../assets/diagrams/pipeline_flow__diagram_02__3642d254.mmd)
+
 
 ## Stage-by-stage explanation
 

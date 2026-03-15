@@ -1,17 +1,63 @@
+```
+  ____            _       _     ____        _
+ / ___|  ___ _ __(_)_ __ | |_  |  _ \ _   _| |___  ___
+ \___ \ / __| '__| | '_ \| __| | |_) | | | | / __|/ _ \
+  ___) | (__| |  | | |_) | |_  |  __/| |_| | \__ \  __/
+ |____/ \___|_|  |_| .__/ \__| |_|    \__,_|_|___/\___|
+                   |_|
+```
+
 # Script Pulse
 
-Script Pulse is a local FastAPI app for short script analysis.
+Evidence-led script analysis for short scenes.
 
-Paste a script.
-Run the pipeline.
-Get a grounded report back.
+Script Pulse is a local FastAPI app that turns pasted script text into a grounded, line-referenced report:
 
-The report is not just one score with a bunch of vague words around it.
-It breaks the scene into beats, reads the emotional arc, scores engagement, suggests fixes, validates the output, and links everything back to exact line IDs.
+- Normalizes the script into stable line IDs (L1, L2, ...)
+- Extracts beats, reads emotion arc, scores engagement, and proposes improvements
+- Validates the result (grounding, score consistency, cliffhanger text, line IDs)
+- Supports validator-guided regeneration retries
+
+## Quick links
+
+- Run it locally: [How To Run It Locally](#how-to-run-it-locally)
+- Use the UI: [How To Use The Web App](#how-to-use-the-web-app)
+- Call the API: [API Guide](#api-guide)
+- Understand the design: [How The Analysis Pipeline Works](#how-the-analysis-pipeline-works)
+- Docs:
+  - [Pipeline flow map](doc/pipeline_flow.md)
+  - [Design rationale](doc/design_rationale.md)
+  - [UI and sessions](doc/ui_and_sessions.md)
+  - [PDF export notes](doc/pdf_export.md)
+
+## Quickstart
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python app.py
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8000
+```
+
+## Diagram rendering
+
+Some Markdown viewers do not render Mermaid code blocks.
+So the repo stores pre-rendered PNG diagrams under `assets/diagrams/` and keeps the Mermaid source alongside as `.mmd` files.
+
+To (re)generate diagrams and update the Markdown embeds:
+
+```powershell
+python scripts\render_mermaid_diagrams.py --rewrite --browser "$env:ProgramFiles\Google\Chrome\Application\chrome.exe"
+```
 
 This README is long on purpose.
-You asked for the full map.
-So this file covers what the system does, how it works, why it was built this way, how to run it, how to use the API, and how to move around the web app without guessing.
+It is a full map of what the system does, how it works, why it was built this way, how to run it, how to use the API, and how to navigate the web app.
 
 ## Table of Contents
 
@@ -178,73 +224,24 @@ They are just not in the running code yet.
 
 ### High-level system diagram
 
-```mermaid
-flowchart TD
-    A[Browser UI] -->|HTTP + SSE| B[FastAPI app]
-    B --> C[Session APIs]
-    B --> D[Stream endpoint]
-    C --> E[SQLite session store]
-    D --> F[Worker thread]
-    F --> G[normalize_script_input]
-    F --> H[run_analysis pipeline]
-    H --> I[message_builder + prompts]
-    H --> J[UltraGPT client]
-    J --> K[OpenRouter model]
-    H --> L[Pydantic schemas]
-    H --> M[Validation + retry logic]
-    F --> E
-    E --> B
-    B --> A
-```
+![Diagram 1](assets/diagrams/README__diagram_01__edf728ee.png)
+
+Source: [README__diagram_01__edf728ee.mmd](assets/diagrams/README__diagram_01__edf728ee.mmd)
+
 
 ### Request lifecycle
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant W as Web UI
-    participant A as FastAPI
-    participant DB as SQLite
-    participant P as Pipeline
-    participant L as LLM
+![Diagram 2](assets/diagrams/README__diagram_02__a555120a.png)
 
-    U->>W: Paste script and click Run Analysis
-    W->>A: POST /api/sessions
-    A->>DB: create session
-    W->>A: POST /api/sessions/{id}/input
-    W->>A: POST /api/sessions/{id}/config
-    W->>A: GET /api/sessions/{id}/stream?mode=analyze
-    A->>DB: mark status running
-    A->>P: start worker thread
-    P->>P: normalize input
-    P->>L: beat extraction
-    A-->>W: progress event
-    P->>L: emotion analysis
-    A-->>W: progress event
-    P->>L: engagement scoring
-    A-->>W: progress event
-    P->>L: improvement plan
-    A-->>W: progress event
-    P->>L: validation
-    A-->>W: progress event
-    P->>DB: save result or error
-    A-->>W: result event
-    A-->>W: done event
-```
+Source: [README__diagram_02__a555120a.mmd](assets/diagrams/README__diagram_02__a555120a.mmd)
+
 
 ### Session status flow
 
-```mermaid
-stateDiagram-v2
-    [*] --> idle
-    idle --> running: stream starts
-    running --> complete: validation passes
-    running --> review: validation returns valid = false
-    running --> error: exception during run
-    review --> running: regenerate
-    complete --> running: regenerate
-    error --> running: rerun after fixing input/config
-```
+![Diagram 3](assets/diagrams/README__diagram_03__d54012b4.png)
+
+Source: [README__diagram_03__d54012b4.mmd](assets/diagrams/README__diagram_03__d54012b4.mmd)
+
 
 ## Project Layout
 
@@ -254,7 +251,8 @@ ScriptAnalysis/
 |-- requirements.txt
 |-- assignment.md
 |-- brain_dump.md
-|-- flow.md
+|-- doc/
+|   `-- pipeline_flow.md
 |-- core/
 |   |-- config.py
 |   |-- keys/
@@ -331,20 +329,10 @@ The backend creates an `AnalysisConfig`, normalizes the script, then walks throu
 
 ### Full pipeline view
 
-```mermaid
-flowchart TD
-    A[Raw script text] --> B[Normalize input]
-    B --> C[Beat extraction]
-    C --> D[Emotion analysis]
-    D --> E[Engagement scoring]
-    E --> F[Improvement plan]
-    F --> G[Final report assembly]
-    G --> H[Validation]
-    H -->|valid| I[Save complete result]
-    H -->|invalid but retryable and iterations remain| J[Collect regeneration instructions]
-    J --> C
-    H -->|invalid and no retry| K[Save review result]
-```
+![Diagram 4](doc/assets/diagrams/README__diagram_04__91a10e3c.png)
+
+Source: [README__diagram_04__91a10e3c.mmd](doc/assets/diagrams/README__diagram_04__91a10e3c.mmd)
+
 
 ### Step 0. Normalize input
 

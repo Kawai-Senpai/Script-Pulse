@@ -1,0 +1,12 @@
+flowchart TD
+    A[Raw script text] --> B[Normalize input]
+    B --> C[Beat extraction]
+    C --> D[Emotion analysis]
+    D --> E[Engagement scoring]
+    E --> F[Improvement plan]
+    F --> G[Final report assembly]
+    G --> H[Validation]
+    H -->|valid| I[Save complete result]
+    H -->|invalid but retryable and iterations remain| J[Collect regeneration instructions]
+    J --> C
+    H -->|invalid and no retry| K[Save review result]
