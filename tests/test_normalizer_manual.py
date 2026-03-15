@@ -5,7 +5,13 @@ ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
+from ultraprint.logging import logger
+
+from core.config import log_config
 from core.services.normalizer import normalize_script_input
+
+
+log = logger("llm_log", **log_config)
 
 
 def run_case(
@@ -15,17 +21,17 @@ def run_case(
     expected_characters: list[str] | None = None,
     expected_line_count: int | None = None,
 ) -> None:
-    print(f"\n=== {name} ===")
+    log.info("=== %s ===", name)
     try:
         result = normalize_script_input(raw_text)
     except Exception as exc:
-        print(f"ERROR: {exc}")
+        log.error("ERROR: %s", exc)
         return
 
-    print("format:", result.script_format)
-    print("characters:", result.detected_characters)
-    print("line_count:", len(result.line_map))
-    print("line_map:", result.line_map)
+    log.info("format: %s", result.script_format)
+    log.info("characters: %s", result.detected_characters)
+    log.info("line_count: %s", len(result.line_map))
+    log.info("line_map: %s", result.line_map)
 
     issues: list[str] = []
     if expected_format and result.script_format != expected_format:
@@ -40,21 +46,21 @@ def run_case(
         )
 
     if issues:
-        print("FAIL:")
+        log.warning("FAIL:")
         for issue in issues:
-            print("-", issue)
+            log.warning("- %s", issue)
     else:
-        print("PASS")
+        log.info("PASS")
 
 
 def run_error_case(name: str, raw_text) -> None:
-    print(f"\n=== {name} ===")
+    log.info("=== %s ===", name)
     try:
         normalize_script_input(raw_text)
     except Exception as exc:
-        print(f"PASS (error as expected): {exc}")
+        log.info("PASS (error as expected): %s", exc)
         return
-    print("FAIL: expected an error but none was raised")
+    log.warning("FAIL: expected an error but none was raised")
 
 
 def main() -> None:
