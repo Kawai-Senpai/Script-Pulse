@@ -1,7 +1,7 @@
-ultragpt==7.5.0
+ultragpt==7.5.1
 pydantic>=2.5.0,<3
 python-dotenv>=1.0.1
-ultraprint==3.5.1
+ultraprint==3.5.0
 fastapi>=0.110.0
 uvicorn>=0.27.0
 jinja2>=3.1.2
