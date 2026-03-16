@@ -636,6 +636,31 @@ The frontend in `web/static/app.js` also keeps a few local things in `localStora
 
 That is why the UI feels stateful even though there is no user auth layer yet.
 
+## Demo Video
+
+This local demo is embedded here on purpose instead of at the very top of the README.
+
+Important:
+This MP4 is a very low-bitrate recording, so it will look blocky and compressed.
+For a clearer version, use the YouTube link below or replace the placeholder URL with the real one.
+
+<p align="center">
+  <a href="https://youtu.be/CROStJxkRYU" target="_blank" rel="noopener noreferrer">
+    <video
+      src="assets/videos/low_bitrate_demo.mp4"
+      controls
+      muted
+      playsinline
+      width="100%"
+    >
+      Your browser does not support embedded video.
+    </video>
+  </a>
+</p>
+
+Watch the high-quality version on YouTube:
+[https://youtu.be/CROStJxkRYU](https://youtu.be/CROStJxkRYU)
+
 ## How To Run It Locally
 
 ### 1. Requirements
