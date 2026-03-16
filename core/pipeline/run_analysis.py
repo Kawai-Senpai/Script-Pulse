@@ -160,7 +160,8 @@ def run_analysis(
         )
 
         log.debug("Regeneration context messages: %d", len(extra_messages))
-
+        
+        #! ---------- BEATS ---------------------------------------------------------------------
         try:
             if progress_callback:
                 progress_callback(
@@ -215,6 +216,7 @@ def run_analysis(
                 }
             )
 
+        #! ------------------- EMOTION ANALYSIS ------------------------------------------
         try:
             if progress_callback:
                 progress_callback(
@@ -270,6 +272,7 @@ def run_analysis(
                 }
             )
 
+        #! ------------ ENGAGEMENT SCORING ------------------------------------------------------
         try:
             if progress_callback:
                 progress_callback(
@@ -327,6 +330,7 @@ def run_analysis(
                 }
             )
 
+        #! ----------------- CRITIQUE ------------------------------------------------------------
         try:
             if progress_callback:
                 progress_callback(
@@ -393,6 +397,7 @@ def run_analysis(
             confidence_notes=[],
         )
 
+        #! -------------------------- VALIDATION ---------------------------------------------------
         try:
             if progress_callback:
                 progress_callback(
